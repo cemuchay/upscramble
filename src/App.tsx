@@ -2,6 +2,7 @@ import { useMemo, useEffect } from 'react';
 import { WordScrambleContainer } from './features/scramble/WordScrambleContainer';
 import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
+import ReloadPrompt from './components/ReloadPrompt';
 
 export default function App() {
   const isEmbedded = useMemo(() => {
@@ -29,10 +30,10 @@ export default function App() {
         <main className="flex-1 flex flex-col items-center justify-start w-full">
           <WordScrambleContainer
             onBackToMenu={isEmbedded ? handleBackToParent : undefined}
-            isEmbedded={isEmbedded}
           />
         </main>
         <ToastContainer position="bottom-right" />
+        <ReloadPrompt />
       </div>
     </ErrorBoundary>
   );

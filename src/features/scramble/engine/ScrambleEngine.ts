@@ -103,6 +103,15 @@ export function scrambleReducer(
 
     case 'STAGE_TILE': {
       if (state.status !== 'playing') return state;
+
+      // Hard Cap: Disallow adding more tiles than the maximum accepted word length (e.g., 4 tiles if playing 4L)
+      const maxAllowedLength = state.config?.selectedLengths?.length > 0
+        ? Math.max(...state.config.selectedLengths)
+        : 10;
+      if (state.stagedTileIds.length >= maxAllowedLength) {
+        return state;
+      }
+
       const tile = state.tiles.find((t) => t.id === action.tileId);
       if (!tile || tile.status !== 'available') return state;
 

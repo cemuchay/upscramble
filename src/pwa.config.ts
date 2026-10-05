@@ -20,11 +20,11 @@ export interface PwaPluginOptions {
  */
 export function getHeavyPwaConfig(options: PwaPluginOptions = {}) {
   const {
-    projectName = 'Vite App',
-    shortName = 'ViteApp',
+    projectName = 'UpScramble',
+    shortName = 'UpScramble',
     themeColor = '#4f46e5',
-    backgroundColor = '#0f172a',
-    description = 'High performance Progressive Web Application',
+    backgroundColor = '#020617',
+    description = 'Fast-paced offline-first word scramble puzzle game',
   } = options;
 
   return {
@@ -56,9 +56,41 @@ export function getHeavyPwaConfig(options: PwaPluginOptions = {}) {
       ],
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+      // Precache app shell, assets, and word dictionary files
+      globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,txt}'],
+      // Increase max file size limit to 5MB to accommodate offline dictionary text files
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       cleanupOutdatedCaches: true,
+      clientsClaim: true,
+      skipWaiting: true,
       runtimeCaching: [
+        {
+          // App Navigation (index.html) - Network-first with instant offline fallback
+          urlPattern: ({ request }: { request: Request }) => request.mode === 'navigate',
+          handler: 'NetworkFirst' as const,
+          options: {
+            cacheName: 'html-cache',
+            networkTimeoutSeconds: 3,
+            cacheableResponse: {
+              statuses: [0, 200],
+            },
+          },
+        },
+        {
+          // Word Dictionaries (/words/*) - Stale-While-Revalidate so offline is instant & updates sync in background
+          urlPattern: /\/words\/.*\.txt$/i,
+          handler: 'StaleWhileRevalidate' as const,
+          options: {
+            cacheName: 'word-dictionaries-cache',
+            expiration: {
+              maxEntries: 100,
+              maxAgeSeconds: 60 * 60 * 24 * 90, // 90 days
+            },
+            cacheableResponse: {
+              statuses: [0, 200],
+            },
+          },
+        },
         {
           // Cache Google Fonts Stylesheets
           urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -87,7 +119,7 @@ export function getHeavyPwaConfig(options: PwaPluginOptions = {}) {
           },
         },
         {
-          // Runtime caching for static images
+          // Runtime caching for static images / icons
           urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|avif)$/i,
           handler: 'StaleWhileRevalidate' as const,
           options: {

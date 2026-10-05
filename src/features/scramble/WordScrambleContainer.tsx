@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useCallback, useMemo, useState, useRef } from 'react';
+import React, { useReducer, useEffect, useCallback, useMemo, useState } from 'react';
 import { scrambleReducer, initialScrambleState } from './engine/ScrambleEngine';
 import type { ScrambleConfig, ScrambleTile } from './engine/types';
 import { LocalStorageScrambleRepository } from './storage/ScrambleRepository';
@@ -9,7 +9,6 @@ import { ScrambleBoard } from './components/ScrambleBoard';
 import { SubmissionTray } from './components/SubmissionTray';
 import { FoundWordsList } from './components/FoundWordsList';
 import { ScrambleSummaryModal } from './components/ScrambleSummaryModal';
-import { ScrambleWordSplash, type ScrambleWordSplashData } from './components/ScrambleWordSplash';
 import { ScrambleTutorialModal } from './components/ScrambleTutorialModal';
 import { safeLocalStorage } from '../../services/safeStorage';
 import { toast } from '../../services/toast';
@@ -38,10 +37,6 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
   const [validDictionary, setValidDictionary] = useState<Set<string>>(new Set());
   const [wordListMap, setWordListMap] = useState<Record<number, string[]>>({});
   const [showInGameTutorial, setShowInGameTutorial] = useState<boolean>(false);
-
-  // Splash animation state when a correct word is accepted
-  const [splashData, setSplashData] = useState<ScrambleWordSplashData | null>(null);
-  const prevFoundWordsLengthRef = useRef(0);
 
   const repository = useMemo(() => new LocalStorageScrambleRepository(), []);
 
@@ -103,8 +98,6 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
       }
 
       dispatch({ type: 'START_GAME', config, wordListMap: preparedMap });
-      prevFoundWordsLengthRef.current = 0;
-      setSplashData(null);
       setView('game');
     } catch (err: any) {
       console.error('Error starting Word Scramble game:', err);
@@ -116,8 +109,6 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
     try {
       await prepareDictionaries(savedState.config.selectedLengths);
       dispatch({ type: 'RESTORE_SAVED_GAME', state: savedState });
-      prevFoundWordsLengthRef.current = (savedState.foundWords || []).length;
-      setSplashData(null);
       setView('game');
     } catch (err: any) {
       console.error('Error resuming saved game:', err);
@@ -128,41 +119,6 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
   const handleReturnToLobby = () => {
     setView('lobby');
   };
-
-  // Detect milestone word discoveries (5, 10, 15, 20, etc.) and trigger celebratory milestone splash
-  useEffect(() => {
-    if (view !== 'game') return;
-
-    const currentCount = state.foundWords.length;
-    const prevCount = prevFoundWordsLengthRef.current;
-
-    if (currentCount > prevCount && currentCount > 0) {
-      // Trigger splash ONLY on milestone multiples of 5 (e.g. 5, 10, 15, 20, 25, 30...)
-      if (currentCount % 5 === 0) {
-        const latestWord = state.foundWords[0];
-        if (latestWord) {
-          setSplashData({
-            milestoneCount: currentCount,
-            latestWord: latestWord.word,
-            totalScore: state.score,
-            streak: state.streak,
-            timeBonus: latestWord.timeBonus,
-            timestamp: latestWord.timestamp || Date.now(),
-          });
-        }
-      }
-    }
-    prevFoundWordsLengthRef.current = currentCount;
-  }, [state.foundWords, state.score, state.streak, view]);
-
-  // Auto-dismiss milestone splash animation
-  useEffect(() => {
-    if (!splashData) return;
-    const timer = setTimeout(() => {
-      setSplashData(null);
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [splashData]);
 
   // Dynamic Timer Tick according to progressive decay multiplier
   useEffect(() => {
@@ -389,12 +345,6 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-slate-100 flex flex-col items-center pt-4 sm:pt-8 pb-20 px-3 sm:px-5 select-none relative">
-      {/* Accepted Word Splash Popup Notification */}
-      <ScrambleWordSplash
-        splash={splashData}
-        onDismiss={() => setSplashData(null)}
-      />
-
       {view === 'lobby' ? (
         <ScrambleLobby
           onStartNewGame={handleStartGame}

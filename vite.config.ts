@@ -4,14 +4,14 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
-import { minimalPwaConfig } from './src/pwa.config';
+import { heavyPwaConfig } from './src/pwa.config';
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA(minimalPwaConfig)
+    VitePWA(heavyPwaConfig)
   ],
   resolve: {
     alias: {
