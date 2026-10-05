@@ -46,11 +46,15 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
   const [pendingGame, setPendingGame] = useState<any | null>(null);
   const [historySessions, setHistorySessions] = useState<ScrambleSessionStats[]>([]);
   const [showTutorial, setShowTutorial] = useState<boolean>(() => {
-    return safeLocalStorage.getItem(TUTORIAL_STORAGE_KEY) !== 'true';
+    const val = safeLocalStorage.getItem(TUTORIAL_STORAGE_KEY);
+    return val !== true && val !== 'true';
   });
 
   const handleTutorialComplete = () => {
-    safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+    safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, true as any);
+    try {
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+    } catch {}
     setShowTutorial(false);
   };
 

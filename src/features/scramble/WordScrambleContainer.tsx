@@ -117,6 +117,21 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
   };
 
   const handleReturnToLobby = () => {
+    // If a game is active/playing or paused, immediately persist active game before switching view
+    if (state.status === 'playing' || state.status === 'paused') {
+      repository.saveActiveGame({
+        status: state.status,
+        config: state.config,
+        tiles: state.tiles,
+        stagedTileIds: state.stagedTileIds,
+        score: state.score,
+        streak: state.streak,
+        highestStreak: state.highestStreak,
+        remainingSeconds: state.remainingSeconds,
+        foundWords: state.foundWords,
+        savedAt: new Date().toISOString(),
+      });
+    }
     setView('lobby');
   };
 
@@ -394,11 +409,17 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
           <ScrambleTutorialModal
             isOpen={showInGameTutorial}
             onComplete={() => {
-              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, true as any);
+              try {
+                localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+              } catch {}
               setShowInGameTutorial(false);
             }}
             onSkip={() => {
-              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, true as any);
+              try {
+                localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+              } catch {}
               setShowInGameTutorial(false);
             }}
           />
