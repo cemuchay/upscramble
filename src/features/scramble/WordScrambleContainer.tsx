@@ -99,6 +99,9 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
 
       dispatch({ type: 'START_GAME', config, wordListMap: preparedMap });
       setView('game');
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } catch (err: any) {
       console.error('Error starting Word Scramble game:', err);
       triggerToast(err?.message || 'Could not start game. Please try again.', TOAST_DURATION.DEFAULT);
@@ -110,6 +113,9 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
       await prepareDictionaries(savedState.config.selectedLengths);
       dispatch({ type: 'RESTORE_SAVED_GAME', state: savedState });
       setView('game');
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } catch (err: any) {
       console.error('Error resuming saved game:', err);
       triggerToast(err?.message || 'Could not resume game.', TOAST_DURATION.DEFAULT);
@@ -133,7 +139,17 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
       });
     }
     setView('lobby');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
+
+  // Scroll to top whenever view changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [view]);
 
   // Dynamic Timer Tick according to progressive decay multiplier
   useEffect(() => {
@@ -369,7 +385,7 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
       ) : (
         <>
           {/* Top In-Game Navbar */}
-          <header className="w-full max-w-4xl flex items-center justify-between mb-3 mt-1">
+          <header className="w-full max-w-4xl flex items-center justify-between mb-2 mt-1">
             <button
               onClick={handleReturnToLobby}
               className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-300 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 shadow-md"
@@ -405,21 +421,29 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
             </div>
           </header>
 
+          {/* Core Game Stats & Timer / Pause Controls placed right ON TOP */}
+          <div className="w-full max-w-4xl">
+            <ScrambleHeader
+              score={state.score}
+              streak={state.streak}
+              remainingSeconds={state.remainingSeconds}
+              mode={state.config.mode}
+              targetLengths={state.config.selectedLengths}
+              isPaused={state.status === 'paused'}
+              onTogglePause={handleTogglePause}
+              timeDecayMultiplier={state.timeDecayMultiplier}
+            />
+          </div>
+
           {/* In-Game Tutorial Modal */}
           <ScrambleTutorialModal
             isOpen={showInGameTutorial}
             onComplete={() => {
-              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, true as any);
-              try {
-                localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
-              } catch {}
+              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
               setShowInGameTutorial(false);
             }}
             onSkip={() => {
-              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, true as any);
-              try {
-                localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
-              } catch {}
+              safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
               setShowInGameTutorial(false);
             }}
           />
@@ -450,19 +474,8 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
               />
             </section>
 
-            {/* Right Column on Desktop (Score & Options & Discovered Words), Bottom on Mobile */}
+            {/* Right Column on Desktop (Discovered Words List), Bottom on Mobile */}
             <section className="w-full lg:w-5/12 flex flex-col gap-2.5">
-              <ScrambleHeader
-                score={state.score}
-                streak={state.streak}
-                remainingSeconds={state.remainingSeconds}
-                mode={state.config.mode}
-                targetLengths={state.config.selectedLengths}
-                isPaused={state.status === 'paused'}
-                onTogglePause={handleTogglePause}
-                timeDecayMultiplier={state.timeDecayMultiplier}
-              />
-
               <FoundWordsList foundWords={state.foundWords} />
             </section>
           </main>

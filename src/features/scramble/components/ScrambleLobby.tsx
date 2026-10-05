@@ -46,15 +46,12 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
   const [pendingGame, setPendingGame] = useState<any | null>(null);
   const [historySessions, setHistorySessions] = useState<ScrambleSessionStats[]>([]);
   const [showTutorial, setShowTutorial] = useState<boolean>(() => {
-    const val = safeLocalStorage.getItem(TUTORIAL_STORAGE_KEY);
-    return val !== true && val !== 'true';
+    const val = String(safeLocalStorage.getItem(TUTORIAL_STORAGE_KEY) ?? '');
+    return val !== 'true';
   });
 
   const handleTutorialComplete = () => {
-    safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, true as any);
-    try {
-      localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
-    } catch {}
+    safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
     setShowTutorial(false);
   };
 
@@ -437,7 +434,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
             </div>
 
             {/* Right Col: Setup Preview & Start Button */}
-            <div className="lg:col-span-5 flex flex-col space-y-4 pb-18 mb-6">
+            <div className="lg:col-span-5 flex flex-col space-y-4 pb-6 mb-6">
               <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4 flex-1">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
                   Game Configuration Summary

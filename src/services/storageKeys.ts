@@ -47,7 +47,7 @@ export interface LocalStorageSchema {
   /** Generic debug flags */
   'debug_mode': boolean;
   /** Word scramble tutorial completion flag */
-  'wordscramble_tutorial_completed': string;
+  'wordscramble_tutorial_completed': boolean | string;
   /** Word scramble last saved game configuration */
   'wordscramble_last_config': string;
   /** Custom generic key index signature for flexible string keys */
