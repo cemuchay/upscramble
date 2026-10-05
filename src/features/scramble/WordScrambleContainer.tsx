@@ -29,7 +29,6 @@ const TOAST_DURATION = {
 
 export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
   onBackToMenu,
-  isEmbedded = false,
 }) => {
   const triggerToast = useCallback((msg: string, duration = 3000) => {
     toast.info(msg, { duration });

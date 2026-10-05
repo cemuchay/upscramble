@@ -83,7 +83,7 @@ const createApiClient = (baseURL: string = import.meta.env.VITE_API_URL || '/api
 
       return config;
     },
-    (error) => Promise.reject(error)
+    (error: unknown) => Promise.reject(error)
   );
 
   // Response Interceptor: Handles retries, logging, and formatted error rejections
@@ -154,19 +154,19 @@ export const api = createApiClient();
 // Strongly-typed convenience wrappers
 export const http = {
   get: <T = unknown>(url: string, config?: CustomRequestConfig): Promise<T> =>
-    api.get<unknown, AxiosResponse<T>>(url, config).then((res) => res.data),
+    api.get<unknown, AxiosResponse<T>>(url, config).then((res: AxiosResponse<T>) => res.data),
 
   post: <T = unknown>(url: string, data?: unknown, config?: CustomRequestConfig): Promise<T> =>
-    api.post<unknown, AxiosResponse<T>>(url, data, config).then((res) => res.data),
+    api.post<unknown, AxiosResponse<T>>(url, data, config).then((res: AxiosResponse<T>) => res.data),
 
   put: <T = unknown>(url: string, data?: unknown, config?: CustomRequestConfig): Promise<T> =>
-    api.put<unknown, AxiosResponse<T>>(url, data, config).then((res) => res.data),
+    api.put<unknown, AxiosResponse<T>>(url, data, config).then((res: AxiosResponse<T>) => res.data),
 
   patch: <T = unknown>(url: string, data?: unknown, config?: CustomRequestConfig): Promise<T> =>
-    api.patch<unknown, AxiosResponse<T>>(url, data, config).then((res) => res.data),
+    api.patch<unknown, AxiosResponse<T>>(url, data, config).then((res: AxiosResponse<T>) => res.data),
 
   delete: <T = unknown>(url: string, config?: CustomRequestConfig): Promise<T> =>
-    api.delete<unknown, AxiosResponse<T>>(url, config).then((res) => res.data),
+    api.delete<unknown, AxiosResponse<T>>(url, config).then((res: AxiosResponse<T>) => res.data),
 };
 
 export default api;

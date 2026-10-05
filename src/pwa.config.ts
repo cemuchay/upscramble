@@ -29,7 +29,7 @@ export function getHeavyPwaConfig(options: PwaPluginOptions = {}) {
 
   return {
     registerType: 'autoUpdate' as const,
-    includeAssets: ['favicon.svg', 'pwa-icon.svg', 'robots.txt', 'apple-touch-icon.png'],
+    includeAssets: ['pwa-icon.svg'],
     manifest: {
       name: projectName,
       short_name: shortName,
@@ -135,7 +135,7 @@ export function getMinimalPwaConfig(options: PwaPluginOptions = {}) {
 
   return {
     registerType: 'autoUpdate' as const,
-    includeAssets: ['favicon.svg', 'pwa-icon.svg', 'apple-touch-icon.png'],
+    includeAssets: ['pwa-icon.svg'],
     manifest: {
       name: projectName,
       short_name: shortName,
@@ -162,8 +162,8 @@ export function getMinimalPwaConfig(options: PwaPluginOptions = {}) {
       ],
     },
     workbox: {
-      // Do not precache JavaScript chunks or documents
-      globPatterns: ['favicon.svg', 'pwa-icon.svg'],
+      // Precache only verified static icons
+      globPatterns: ['pwa-icon.svg'],
       navigateFallback: null,
       cleanupOutdatedCaches: true,
       runtimeCaching: [

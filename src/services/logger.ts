@@ -118,6 +118,22 @@ class SmartLogger {
     return true;
   }
 
+  public warn(message: string, metadata?: Record<string, unknown>): void {
+    if (import.meta.env.DEV) {
+      console.warn(`[SmartLogger] Warn: ${message}`, metadata);
+    }
+  }
+
+  public error(message: string, metadata?: Record<string, unknown>): void {
+    this.logError(message, undefined, metadata);
+  }
+
+  public info(message: string, metadata?: Record<string, unknown>): void {
+    if (import.meta.env.DEV) {
+      console.info(`[SmartLogger] Info: ${message}`, metadata);
+    }
+  }
+
   /**
    * Dispatches the log payload to console and optionally to a remote logging endpoint
    */

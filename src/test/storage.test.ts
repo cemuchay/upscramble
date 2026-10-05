@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { safeLocalStorage, safeSessionStorage } from '../services/safeStorage';
 import { safeIndexedDB } from '../services/safeIndexedDB';
 

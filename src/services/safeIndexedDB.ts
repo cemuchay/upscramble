@@ -31,14 +31,6 @@ export interface IndexedDBConfig {
 export interface SafeIndexedDBGateway {
   /**
    * Retrieves an item by primary key from the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @param {IDBValidKey} key - Primary key of the record
-   * @returns {Promise<IndexedDBSchema[S] | null>} Stored object or null if not found
-   *
-   * @example
-   * const cache = await safeIndexedDB.get('api_cache', '/api/v1/users');
    */
   get<S extends IndexedDBStoreName>(
     storeName: S,
@@ -47,20 +39,6 @@ export interface SafeIndexedDBGateway {
 
   /**
    * Inserts or updates an item in the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @param {IndexedDBSchema[S]} value - Object to save (must include primary key if in-line)
-   * @param {IDBValidKey} [key] - Explicit primary key if store uses out-of-line keys
-   * @returns {Promise<IDBValidKey | null>} The key inserted, or null on complete failure
-   *
-   * @example
-   * await safeIndexedDB.set('api_cache', {
-   *   id: '/api/v1/users',
-   *   url: '/api/v1/users',
-   *   data: usersData,
-   *   expiresAt: Date.now() + 60000
-   * });
    */
   set<S extends IndexedDBStoreName>(
     storeName: S,
@@ -70,14 +48,6 @@ export interface SafeIndexedDBGateway {
 
   /**
    * Deletes an item by primary key from the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @param {IDBValidKey} key - Primary key to delete
-   * @returns {Promise<boolean>} True if delete succeeded
-   *
-   * @example
-   * await safeIndexedDB.delete('api_cache', '/api/v1/users');
    */
   delete<S extends IndexedDBStoreName>(
     storeName: S,
@@ -86,26 +56,11 @@ export interface SafeIndexedDBGateway {
 
   /**
    * Clears all entries from the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @returns {Promise<boolean>} True if store cleared successfully
-   *
-   * @example
-   * await safeIndexedDB.clear('api_cache');
    */
   clear<S extends IndexedDBStoreName>(storeName: S): Promise<boolean>;
 
   /**
    * Retrieves all items from the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @param {number} [count] - Optional maximum number of items to retrieve
-   * @returns {Promise<IndexedDBSchema[S][]>} Array of items
-   *
-   * @example
-   * const drafts = await safeIndexedDB.getAll('drafts');
    */
   getAll<S extends IndexedDBStoreName>(
     storeName: S,
@@ -114,26 +69,16 @@ export interface SafeIndexedDBGateway {
 
   /**
    * Retrieves all primary keys from the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @returns {Promise<IDBValidKey[]>} Array of keys
    */
   getAllKeys<S extends IndexedDBStoreName>(storeName: S): Promise<IDBValidKey[]>;
 
   /**
    * Counts the total number of records in the specified Object Store.
-   *
-   * @template S - Store name in IndexedDBSchema
-   * @param {S} storeName - Target object store name
-   * @returns {Promise<number>} Total count
    */
   count<S extends IndexedDBStoreName>(storeName: S): Promise<number>;
 
   /**
    * Checks if native browser IndexedDB is supported and accessible.
-   *
-   * @returns {boolean} True if native IndexedDB works, false if using in-memory store
    */
   isAvailable(): boolean;
 }
@@ -197,7 +142,7 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
   private dbName: string;
   private version: number;
   private storeNames: IndexedDBStoreName[];
-  private dbPromise: Promise<IDBDatabase> | null = null;
+  private dbPromise: Promise<IDBDatabase | null> | null = null;
   private memoryFallback: MemoryIndexedDB = new MemoryIndexedDB();
   private isNativeSupported: boolean;
 
@@ -233,16 +178,17 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
       return this.dbPromise;
     }
 
-    this.dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+    this.dbPromise = new Promise<IDBDatabase | null>((resolve, reject) => {
       try {
         const request = window.indexedDB.open(this.dbName, this.version);
 
         request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
           const db = (event.target as IDBOpenDBRequest).result;
           this.storeNames.forEach((storeName) => {
-            if (!db.objectStoreNames.contains(storeName)) {
+            const nameStr = String(storeName);
+            if (!db.objectStoreNames.contains(nameStr)) {
               // Create store with 'id' as keyPath by default
-              db.createObjectStore(storeName, { keyPath: 'id' });
+              db.createObjectStore(nameStr, { keyPath: 'id' });
             }
           });
         };
@@ -271,10 +217,10 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
         logger.warn(`SafeIndexedDB: Exception encountered when opening database "${this.dbName}"`, { error: err });
         reject(err);
       }
-    }).catch((err) => {
+    }).catch(() => {
       this.isNativeSupported = false;
       this.dbPromise = null;
-      return null as any;
+      return null;
     });
 
     return this.dbPromise;
@@ -284,16 +230,17 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
     storeName: S,
     key: IDBValidKey
   ): Promise<IndexedDBSchema[S] | null> {
+    const sName = String(storeName);
     try {
       const db = await this.getDB();
       if (!db) {
-        return this.memoryFallback.get(storeName, key);
+        return this.memoryFallback.get(sName, key);
       }
 
       return new Promise<IndexedDBSchema[S] | null>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readonly');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readonly');
+          const store = transaction.objectStore(sName);
           const request = store.get(key);
 
           request.onsuccess = () => {
@@ -301,16 +248,16 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
           };
 
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error getting key "${String(key)}" from store "${storeName}"`, { error: request.error });
-            resolve(this.memoryFallback.get(storeName, key));
+            logger.warn(`SafeIndexedDB: Error getting key "${String(key)}" from store "${sName}"`, { error: request.error });
+            resolve(this.memoryFallback.get(sName, key));
           };
         } catch (txError) {
           logger.warn(`SafeIndexedDB: Transaction failure reading "${String(key)}"`, { error: txError });
-          resolve(this.memoryFallback.get(storeName, key));
+          resolve(this.memoryFallback.get(sName, key));
         }
       });
     } catch {
-      return this.memoryFallback.get(storeName, key);
+      return this.memoryFallback.get(sName, key);
     }
   }
 
@@ -319,37 +266,36 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
     value: IndexedDBSchema[S],
     key?: IDBValidKey
   ): Promise<IDBValidKey | null> {
+    const sName = String(storeName);
     try {
       const db = await this.getDB();
       if (!db) {
-        return this.memoryFallback.set(storeName, value, key);
+        return this.memoryFallback.set(sName, value, key);
       }
 
       return new Promise<IDBValidKey | null>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readwrite');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readwrite');
+          const store = transaction.objectStore(sName);
 
-          // If store has inline keyPath 'id' and value contains id, don't pass key as second param
           const request = store.keyPath ? store.put(value) : store.put(value, key);
 
           request.onsuccess = () => {
-            // Keep memory fallback in sync
-            this.memoryFallback.set(storeName, value, key);
+            this.memoryFallback.set(sName, value, key);
             resolve(request.result);
           };
 
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error storing item into "${storeName}"`, { error: request.error });
-            resolve(this.memoryFallback.set(storeName, value, key));
+            logger.warn(`SafeIndexedDB: Error storing item into "${sName}"`, { error: request.error });
+            resolve(this.memoryFallback.set(sName, value, key));
           };
         } catch (txError) {
-          logger.warn(`SafeIndexedDB: Transaction error writing to "${storeName}"`, { error: txError });
-          resolve(this.memoryFallback.set(storeName, value, key));
+          logger.warn(`SafeIndexedDB: Transaction error writing to "${sName}"`, { error: txError });
+          resolve(this.memoryFallback.set(sName, value, key));
         }
       });
     } catch {
-      return this.memoryFallback.set(storeName, value, key);
+      return this.memoryFallback.set(sName, value, key);
     }
   }
 
@@ -357,20 +303,21 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
     storeName: S,
     key: IDBValidKey
   ): Promise<boolean> {
+    const sName = String(storeName);
     try {
-      this.memoryFallback.delete(storeName, key);
+      this.memoryFallback.delete(sName, key);
       const db = await this.getDB();
       if (!db) return true;
 
       return new Promise<boolean>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readwrite');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readwrite');
+          const store = transaction.objectStore(sName);
           const request = store.delete(key);
 
           request.onsuccess = () => resolve(true);
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error deleting key "${String(key)}" from "${storeName}"`, { error: request.error });
+            logger.warn(`SafeIndexedDB: Error deleting key "${String(key)}" from "${sName}"`, { error: request.error });
             resolve(false);
           };
         } catch (txError) {
@@ -384,24 +331,25 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
   }
 
   public async clear<S extends IndexedDBStoreName>(storeName: S): Promise<boolean> {
+    const sName = String(storeName);
     try {
-      this.memoryFallback.clear(storeName);
+      this.memoryFallback.clear(sName);
       const db = await this.getDB();
       if (!db) return true;
 
       return new Promise<boolean>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readwrite');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readwrite');
+          const store = transaction.objectStore(sName);
           const request = store.clear();
 
           request.onsuccess = () => resolve(true);
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error clearing store "${storeName}"`, { error: request.error });
+            logger.warn(`SafeIndexedDB: Error clearing store "${sName}"`, { error: request.error });
             resolve(false);
           };
         } catch (txError) {
-          logger.warn(`SafeIndexedDB: Transaction error clearing "${storeName}"`, { error: txError });
+          logger.warn(`SafeIndexedDB: Transaction error clearing "${sName}"`, { error: txError });
           resolve(false);
         }
       });
@@ -414,16 +362,17 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
     storeName: S,
     count?: number
   ): Promise<IndexedDBSchema[S][]> {
+    const sName = String(storeName);
     try {
       const db = await this.getDB();
       if (!db) {
-        return this.memoryFallback.getAll(storeName, count);
+        return this.memoryFallback.getAll(sName, count);
       }
 
       return new Promise<IndexedDBSchema[S][]>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readonly');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readonly');
+          const store = transaction.objectStore(sName);
           const request = store.getAll(undefined, count);
 
           request.onsuccess = () => {
@@ -431,30 +380,31 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
           };
 
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error getting all items from "${storeName}"`, { error: request.error });
-            resolve(this.memoryFallback.getAll(storeName, count));
+            logger.warn(`SafeIndexedDB: Error getting all items from "${sName}"`, { error: request.error });
+            resolve(this.memoryFallback.getAll(sName, count));
           };
         } catch (txError) {
-          logger.warn(`SafeIndexedDB: Transaction error getAll on "${storeName}"`, { error: txError });
-          resolve(this.memoryFallback.getAll(storeName, count));
+          logger.warn(`SafeIndexedDB: Transaction error getAll on "${sName}"`, { error: txError });
+          resolve(this.memoryFallback.getAll(sName, count));
         }
       });
     } catch {
-      return this.memoryFallback.getAll(storeName, count);
+      return this.memoryFallback.getAll(sName, count);
     }
   }
 
   public async getAllKeys<S extends IndexedDBStoreName>(storeName: S): Promise<IDBValidKey[]> {
+    const sName = String(storeName);
     try {
       const db = await this.getDB();
       if (!db) {
-        return this.memoryFallback.getAllKeys(storeName);
+        return this.memoryFallback.getAllKeys(sName);
       }
 
       return new Promise<IDBValidKey[]>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readonly');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readonly');
+          const store = transaction.objectStore(sName);
           const request = store.getAllKeys();
 
           request.onsuccess = () => {
@@ -462,68 +412,49 @@ class SafeIndexedDB implements SafeIndexedDBGateway {
           };
 
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error getting all keys from "${storeName}"`, { error: request.error });
-            resolve(this.memoryFallback.getAllKeys(storeName));
+            logger.warn(`SafeIndexedDB: Error getting all keys from "${sName}"`, { error: request.error });
+            resolve(this.memoryFallback.getAllKeys(sName));
           };
         } catch (txError) {
-          logger.warn(`SafeIndexedDB: Transaction error getAllKeys on "${storeName}"`, { error: txError });
-          resolve(this.memoryFallback.getAllKeys(storeName));
+          logger.warn(`SafeIndexedDB: Transaction error getAllKeys on "${sName}"`, { error: txError });
+          resolve(this.memoryFallback.getAllKeys(sName));
         }
       });
     } catch {
-      return this.memoryFallback.getAllKeys(storeName);
+      return this.memoryFallback.getAllKeys(sName);
     }
   }
 
   public async count<S extends IndexedDBStoreName>(storeName: S): Promise<number> {
+    const sName = String(storeName);
     try {
       const db = await this.getDB();
       if (!db) {
-        return this.memoryFallback.count(storeName);
+        return this.memoryFallback.count(sName);
       }
 
       return new Promise<number>((resolve) => {
         try {
-          const transaction = db.transaction([storeName], 'readonly');
-          const store = transaction.objectStore(storeName);
+          const transaction = db.transaction([sName], 'readonly');
+          const store = transaction.objectStore(sName);
           const request = store.count();
 
           request.onsuccess = () => resolve(request.result || 0);
           request.onerror = () => {
-            logger.warn(`SafeIndexedDB: Error counting items in "${storeName}"`, { error: request.error });
-            resolve(this.memoryFallback.count(storeName));
+            logger.warn(`SafeIndexedDB: Error counting items in "${sName}"`, { error: request.error });
+            resolve(this.memoryFallback.count(sName));
           };
         } catch (txError) {
-          logger.warn(`SafeIndexedDB: Transaction error count on "${storeName}"`, { error: txError });
-          resolve(this.memoryFallback.count(storeName));
+          logger.warn(`SafeIndexedDB: Transaction error count on "${sName}"`, { error: txError });
+          resolve(this.memoryFallback.count(sName));
         }
       });
     } catch {
-      return this.memoryFallback.count(storeName);
+      return this.memoryFallback.count(sName);
     }
   }
 }
 
-/**
- * Singleton safe IndexedDB client instance.
- * Automatically handles schema migrations, connection pooling, and in-memory fallbacks.
- *
- * @example
- * ```ts
- * import { safeIndexedDB } from '@/services/storage';
- *
- * // Write record to drafts store
- * await safeIndexedDB.set('drafts', {
- *   id: 'doc_123',
- *   title: 'Meeting Notes',
- *   content: 'Action items...',
- *   updatedAt: Date.now()
- * });
- *
- * // Read record
- * const draft = await safeIndexedDB.get('drafts', 'doc_123');
- * ```
- */
 export const safeIndexedDB: SafeIndexedDBGateway = new SafeIndexedDB();
 
 export default safeIndexedDB;

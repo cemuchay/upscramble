@@ -11,11 +11,9 @@
  * @module safeStorage
  */
 
-import {
+import type {
   LocalStorageSchema,
-  LocalStorageKey,
   SessionStorageSchema,
-  SessionStorageKey,
 } from './storageKeys';
 import { logger } from './logger';
 
@@ -219,7 +217,6 @@ class SafeStorage<TSchema extends Record<string, any>> implements SafeStorageGat
       return JSON.parse(rawValue) as TSchema[K];
     } catch (parseError) {
       logger.warn(`SafeStorage (${this.storageType}): Failed to parse JSON for key "${keyStr}". Returning raw string or defaultValue.`, { error: parseError });
-      // If parsing fails but raw value exists, return rawValue if default not provided
       return (rawValue as unknown as TSchema[K]) ?? defaultValue ?? null;
     }
   }
@@ -229,7 +226,7 @@ class SafeStorage<TSchema extends Record<string, any>> implements SafeStorageGat
     let serialized: string;
 
     try {
-      serialized = JSON.stringify(value);
+      serialized = typeof value === 'string' ? value : JSON.stringify(value);
     } catch (serializeError) {
       logger.error(`SafeStorage (${this.storageType}): Failed to serialize value for key "${keyStr}"`, { error: serializeError });
       return false;
@@ -240,11 +237,9 @@ class SafeStorage<TSchema extends Record<string, any>> implements SafeStorageGat
     if (storage) {
       try {
         storage.setItem(keyStr, serialized);
-        // Also keep memory fallback synced
         this.memoryFallback.setItem(keyStr, serialized);
         return true;
       } catch (storageError: any) {
-        // QuotaExceededError or security block
         const isQuota =
           storageError?.name === 'QuotaExceededError' ||
           storageError?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
@@ -342,41 +337,7 @@ class SafeStorage<TSchema extends Record<string, any>> implements SafeStorageGat
   }
 }
 
-/**
- * Safe, type-checked gateway for `window.localStorage`.
- * Uses {@link LocalStorageSchema} keys for compile-time safety and automatic JSON parsing.
- *
- * @example
- * ```ts
- * import { safeLocalStorage } from '@/services/storage';
- *
- * // Fully typed getItem with default fallback
- * const theme = safeLocalStorage.getItem('app_theme', 'dark'); // 'light' | 'dark'
- *
- * // Type-checked setItem
- * safeLocalStorage.setItem('app_theme', 'light');
- *
- * // Remove
- * safeLocalStorage.removeItem('app_theme');
- * ```
- */
 export const safeLocalStorage: SafeStorageGateway<LocalStorageSchema> = new SafeStorage<LocalStorageSchema>('localStorage');
-
-/**
- * Safe, type-checked gateway for `window.sessionStorage`.
- * Uses {@link SessionStorageSchema} keys for compile-time safety and automatic JSON parsing.
- *
- * @example
- * ```ts
- * import { safeSessionStorage } from '@/services/storage';
- *
- * // Type-checked setItem
- * safeSessionStorage.setItem('redirect_after_login', '/dashboard');
- *
- * // Type-checked getItem
- * const redirect = safeSessionStorage.getItem('redirect_after_login', '/');
- * ```
- */
 export const safeSessionStorage: SafeStorageGateway<SessionStorageSchema> = new SafeStorage<SessionStorageSchema>('sessionStorage');
 
 export default safeLocalStorage;

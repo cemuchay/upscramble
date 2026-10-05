@@ -46,6 +46,12 @@ export interface LocalStorageSchema {
   'banner_dismissed': boolean;
   /** Generic debug flags */
   'debug_mode': boolean;
+  /** Word scramble tutorial completion flag */
+  'wordscramble_tutorial_completed': string;
+  /** Word scramble last saved game configuration */
+  'wordscramble_last_config': string;
+  /** Custom generic key index signature for flexible string keys */
+  [key: string]: unknown;
 }
 
 /**
@@ -67,6 +73,8 @@ export interface SessionStorageSchema {
   'tab_active_session': boolean;
   /** One-time notification suppression flag */
   'welcome_shown': boolean;
+  /** Custom generic key index signature for flexible string keys */
+  [key: string]: unknown;
 }
 
 /**
@@ -107,9 +115,10 @@ export interface IndexedDBSchema {
     content: string;
     updatedAt: number;
   };
+  [storeName: string]: Record<string, unknown> | unknown;
 }
 
 /**
- * Allowed IndexedDB Object Store names
+ * Allowed IndexedDB Object Store names (enforce string)
  */
-export type IndexedDBStoreName = keyof IndexedDBSchema;
+export type IndexedDBStoreName = Extract<keyof IndexedDBSchema, string>;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { ScrambleConfig, ScrambleGameMode } from '../engine/types';
 import { Play, Sparkles, Clock, Infinity as InfinityIcon, Loader2, AlertCircle, History } from 'lucide-react';
 import { ModalLayout } from '@/components/layout/ModalLayout';
-import { safeLocalStorage } from '@/utils/storage';
+import { safeLocalStorage } from '@/services/storage';
 
 interface ScrambleConfigModalProps {
   isOpen: boolean;
@@ -35,7 +35,7 @@ export const ScrambleConfigModal: React.FC<ScrambleConfigModalProps> = ({
   const savedConfig = React.useMemo<SavedScrambleConfig | null>(() => {
     try {
       const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw && typeof raw === 'string') return JSON.parse(raw);
     } catch {
       // fallback
     }

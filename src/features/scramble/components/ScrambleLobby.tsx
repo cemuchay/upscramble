@@ -62,7 +62,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
   const savedConfig = useMemo<SavedScrambleConfig | null>(() => {
     try {
       const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw && typeof raw === 'string') return JSON.parse(raw);
     } catch {
       // fallback
     }

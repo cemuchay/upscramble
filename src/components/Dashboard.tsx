@@ -6,13 +6,10 @@ import {
   Cpu, 
   Plus, 
   RefreshCw, 
-  UserCheck, 
   Send, 
   Terminal, 
-  Trash2,
-  Lock,
-  LogOut,
-  UserPlus
+  LogOut, 
+  UserPlus 
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useDashboardData, usePosts, useCreatePost } from '../hooks/useQueries';

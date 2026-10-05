@@ -65,16 +65,19 @@ export const ScrambleTutorialModal: React.FC<ScrambleTutorialModalProps> = ({
 
   useEffect(() => {
     setHasScrolledToBottom(false);
+    let timer: ReturnType<typeof setTimeout> | undefined;
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         const el = scrollRef.current;
         if (el && el.scrollHeight <= el.clientHeight + 4) {
           setHasScrolledToBottom(true);
         }
       }, 250);
-      return () => clearTimeout(timer);
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [stepIndex]);
 
   if (!isOpen) return null;
