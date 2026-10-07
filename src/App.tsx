@@ -18,7 +18,7 @@ export default function App() {
         <main className="flex-1 flex flex-col items-center justify-start w-full">
           <WordScrambleContainer />
         </main>
-        <ToastContainer position="bottom-right" />
+        <ToastContainer position="top-center" />
         {/* Only display standalone PWA prompts when not embedded in another game's iframe */}
         {!isEmbedded && (
           <>

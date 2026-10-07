@@ -45,7 +45,7 @@ type ToastListener = (toasts: ToastItem[]) => void;
 class ToastManager {
   private toasts: ToastItem[] = [];
   private listeners: Set<ToastListener> = new Set();
-  private defaultPosition: ToastPosition = 'bottom-right';
+  private defaultPosition: ToastPosition = 'top-center';
 
   public subscribe(listener: ToastListener): () => void {
     this.listeners.add(listener);

@@ -4,6 +4,7 @@ import type { ScrambleConfig, ScrambleGameMode, ScrambleSessionStats } from '../
 import { LocalStorageScrambleRepository } from '../storage/ScrambleRepository';
 import { safeLocalStorage } from '../../../services/safeStorage';
 import { ScrambleTutorialModal } from './ScrambleTutorialModal';
+import { ModalLayout } from '@/components/layout/ModalLayout';
 import {
   Play,
   Sparkles,
@@ -18,6 +19,7 @@ import {
   CheckCircle2,
   HelpCircle,
   Share2,
+  Dices,
 } from 'lucide-react';
 
 interface ScrambleLobbyProps {
@@ -60,26 +62,67 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
     setShowTutorial(true);
   };
 
-  // Load saved config if it exists
-  const savedConfig = useMemo<SavedScrambleConfig | null>(() => {
+  // Game configuration state initialized lazily directly from safeLocalStorage
+  const [primaryLength, setPrimaryLength] = useState<number>(() => {
     try {
-      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY);
-      if (raw && typeof raw === 'string') return JSON.parse(raw);
-    } catch {
-      // fallback
-    }
-    return null;
-  }, []);
+      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
+      if (raw && typeof raw === 'object' && 'primaryLength' in (raw as any)) {
+        return (raw as any).primaryLength;
+      }
+      if (raw && typeof raw === 'string') {
+        const parsed = JSON.parse(raw);
+        return parsed.primaryLength ?? 5;
+      }
+    } catch {}
+    return 5;
+  });
 
-  // Game configuration form state: 2-Row selector design
-  // Row 1: Primary Target Length (strictly 1 length selected)
-  const [primaryLength, setPrimaryLength] = useState<number>(savedConfig?.primaryLength ?? 5);
-  // Row 2: Additional Accepted Lengths (optional, up to max 2 additional lengths)
-  const [additionalLengths, setAdditionalLengths] = useState<number[]>(savedConfig?.additionalLengths ?? []);
+  const [additionalLengths, setAdditionalLengths] = useState<number[]>(() => {
+    try {
+      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
+      if (raw && typeof raw === 'object' && 'additionalLengths' in (raw as any)) {
+        return (raw as any).additionalLengths || [];
+      }
+      if (raw && typeof raw === 'string') {
+        const parsed = JSON.parse(raw);
+        return parsed.additionalLengths || [];
+      }
+    } catch {}
+    return [];
+  });
 
-  const [mode, setMode] = useState<ScrambleGameMode>(savedConfig?.mode ?? 'timed');
-  const [durationSeconds, setDurationSeconds] = useState<number>(savedConfig?.durationSeconds ?? 90);
+  const [mode, setMode] = useState<ScrambleGameMode>(() => {
+    try {
+      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
+      if (raw && typeof raw === 'object' && 'mode' in (raw as any)) {
+        return (raw as any).mode || 'timed';
+      }
+      if (raw && typeof raw === 'string') {
+        const parsed = JSON.parse(raw);
+        return parsed.mode || 'timed';
+      }
+    } catch {}
+    return 'timed';
+  });
+
+  const [durationSeconds, setDurationSeconds] = useState<number>(() => {
+    try {
+      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
+      if (raw && typeof raw === 'object' && 'durationSeconds' in (raw as any)) {
+        return (raw as any).durationSeconds || 90;
+      }
+      if (raw && typeof raw === 'string') {
+        const parsed = JSON.parse(raw);
+        return parsed.durationSeconds || 90;
+      }
+    } catch {}
+    return 90;
+  });
+
   const [useScrabbleDict] = useState<boolean>(true);
+
+  // Review confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
 
   // Persist config selection whenever values change
   useEffect(() => {
@@ -89,7 +132,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
       mode,
       durationSeconds,
     };
-    safeLocalStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(toSave));
+    safeLocalStorage.setItem(CONFIG_STORAGE_KEY as any, toSave as any);
   }, [primaryLength, additionalLengths, mode, durationSeconds]);
 
   // Load storage data
@@ -130,7 +173,40 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
     }
   };
 
+  const handleRandomizeConfig = () => {
+    // 1. Pick a random primary length (3 to 8)
+    const randomPrimary = AVAILABLE_LENGTHS[Math.floor(Math.random() * (AVAILABLE_LENGTHS.length - 2))]; // bias towards 3-8
+    
+    // 2. Decide if we want additional lengths (50% chance single length, 50% chance multi-length)
+    const wantsAdditional = Math.random() > 0.5;
+    let randomAdditionals: number[] = [];
+    if (wantsAdditional) {
+      const candidates = AVAILABLE_LENGTHS.filter((l) => l !== randomPrimary);
+      // Pick 1 or 2 additional lengths
+      const count = Math.random() > 0.5 ? 2 : 1;
+      const shuffled = [...candidates].sort(() => 0.5 - Math.random());
+      randomAdditionals = shuffled.slice(0, count).sort((a, b) => a - b);
+    }
+
+    // 3. Random mode (65% timed, 35% untimed)
+    const randomMode: ScrambleGameMode = Math.random() > 0.35 ? 'timed' : 'untimed';
+
+    // 4. Random duration if timed (60, 90, 120, 180)
+    const durations = [60, 90, 120, 180];
+    const randomDuration = durations[Math.floor(Math.random() * durations.length)];
+
+    setPrimaryLength(randomPrimary);
+    setAdditionalLengths(randomAdditionals);
+    setMode(randomMode);
+    setDurationSeconds(randomDuration);
+  };
+
+  const handleOpenReviewModal = () => {
+    setShowConfirmModal(true);
+  };
+
   const handleLaunchGame = () => {
+    setShowConfirmModal(false);
     // Dynamic words per spool based on selected lengths
     const wordsPerSpool = selectedLengths.length === 1 && selectedLengths[0] <= 4 ? 8 : 6;
     onStartNewGame({
@@ -162,8 +238,8 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col space-y-5 animate-in fade-in duration-200">
-      {/* Top Banner / Navigation */}
-      <header className="w-full flex items-center justify-between p-3.5 sm:p-4 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl backdrop-blur-md">
+      {/* Top Banner / Navigation with sticky safe area */}
+      <header className="sticky top-0 z-30 w-full flex items-center justify-between p-3.5 sm:p-4 rounded-3xl bg-slate-950/90 border border-slate-800/80 shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-3">
           {onBackToMenu && (
             <button
@@ -291,6 +367,23 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
           >
             {/* Left Col: Setup Configuration */}
             <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 className="text-sm font-black tracking-tight text-slate-100 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-pink-400" />
+                  <span>Customize Game Setup</span>
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={handleRandomizeConfig}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-pink-500/20 hover:from-amber-500/30 hover:to-pink-500/30 border border-amber-500/40 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                  title="Randomly generate game setup"
+                >
+                  <Dices className="w-4 h-4 text-amber-400" />
+                  <span>Random Setup</span>
+                </button>
+              </div>
+
               {/* 2-Row Word Length Selector */}
               <div className="space-y-4">
                 {/* Row 1: Primary Target Length */}
@@ -505,17 +598,90 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
                 </div>
               </div>
 
-              {/* Big Launch Button */}
-              <button
-                onClick={handleLaunchGame}
-                className="w-full py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-slate-950 shadow-[0_0_30px_rgba(52,211,153,0.6)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <Play className="w-5 h-5 fill-current" />
-                <span>START NEW GAME</span>
-              </button>
+              {/* Action Buttons: Start New Game and Quick Randomize */}
+              <div className="flex flex-col gap-2.5">
+                <button
+                  onClick={handleOpenReviewModal}
+                  className="w-full py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-slate-950 shadow-[0_0_30px_rgba(52,211,153,0.6)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  <span>START NEW GAME</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRandomizeConfig}
+                  className="w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-amber-300 hover:text-amber-200 active:scale-[0.98] transition-all cursor-pointer shadow-md"
+                >
+                  <Dices className="w-4 h-4 text-amber-400" />
+                  <span>Roll Random Setup</span>
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
+
+        {/* Game Configuration Confirmation & Review Modal */}
+        <ModalLayout
+          isOpen={showConfirmModal}
+          onClose={() => setShowConfirmModal(false)}
+          title="Review Game Settings"
+          maxWidth="sm"
+          containerClassName="bg-slate-900 border border-indigo-500/40 shadow-2xl text-slate-100 p-4 sm:p-5"
+        >
+          <div className="space-y-4 pt-1">
+            <p className="text-xs text-slate-300">
+              Ready to scramble? Review your selected setup before launching:
+            </p>
+
+            <div className="space-y-2 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs">
+              <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                <span className="text-slate-400">Target Lengths</span>
+                <span className="font-black text-amber-400">
+                  {selectedLengths.map((l) => `${l} Letters`).join(', ')}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                <span className="text-slate-400">Mode</span>
+                <span className="font-black text-cyan-300">
+                  {mode === 'timed' ? `⚡ Timed Rush (${durationSeconds}s)` : '♾️ Untimed Puzzle'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                <span className="text-slate-400">Auto-Submit</span>
+                <span className={`font-bold ${isAutoSubmitEnabled ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {isAutoSubmitEnabled ? 'Enabled' : 'Manual Submit'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between py-1">
+                <span className="text-slate-400">Dictionary</span>
+                <span className="text-slate-300 font-medium">Scrabble / English</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="py-3 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-750 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer"
+              >
+                Change Settings
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLaunchGame}
+                className="py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:brightness-110 text-xs font-black text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>LET'S PLAY</span>
+              </button>
+            </div>
+          </div>
+        </ModalLayout>
 
         {activeTab === 'pending' && (
           <motion.div

@@ -375,7 +375,7 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
   }, [view, state.status, state.tiles, handleSubmit, handleBackspace, handleClear, handleShuffle, handleStageTile]);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-slate-100 flex flex-col items-center pt-4 sm:pt-8 pb-20 px-3 sm:px-5 select-none relative">
+    <div className="min-h-screen w-full bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-slate-100 flex flex-col items-center pt-[max(1rem,env(safe-area-inset-top))] pb-[max(5rem,env(safe-area-inset-bottom))] px-3 sm:px-5 select-none relative">
       {view === 'lobby' ? (
         <ScrambleLobby
           onStartNewGame={handleStartGame}
@@ -384,8 +384,8 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
         />
       ) : (
         <>
-          {/* Top In-Game Navbar */}
-          <header className="w-full max-w-4xl flex items-center justify-between mb-2 mt-1">
+          {/* Top In-Game Navbar with sticky safe-area background */}
+          <header className="sticky top-0 z-30 w-full max-w-4xl flex items-center justify-between py-2.5 px-3 mb-2 rounded-2xl bg-slate-950/90 border border-slate-800/80 backdrop-blur-md shadow-lg">
             <button
               onClick={handleReturnToLobby}
               className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-300 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 shadow-md"
