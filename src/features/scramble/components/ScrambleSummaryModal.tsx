@@ -20,17 +20,44 @@ export const ScrambleSummaryModal: React.FC<ScrambleSummaryModalProps> = ({
   if (!isOpen) return null;
 
   const handleShare = () => {
-    const text = `🌈 Word Scramble Matrix\nScore: ${gameState.score.toLocaleString()} pts\nWords Found: ${
-      gameState.foundWords.length
-    }\nHighest Streak: ${gameState.highestStreak}x\nMode: ${
-      gameState.config.mode
-    } (${gameState.config.selectedLengths.map((l) => `${l}L`).join(', ')})`;
+    // Generate Wordle-style visual emoji score summary
+    const modeName = gameState.config.mode === 'timed' ? '⚡ Timed' : '♾️ Untimed';
+    const lengths = gameState.config.selectedLengths.map((l) => `${l}L`).join('/');
+    
+    // Create a 3-row Wordle-style matrix representation of performance
+    const totalFound = gameState.foundWords.length;
+    const spoolTotal = gameState.secretSpoolWords.length;
+    const spoolFoundCount = gameState.secretSpoolWords.filter((w) =>
+      gameState.foundWords.some((f) => f.word === w)
+    ).length;
+
+    // Wordle blocks
+    const row1 = totalFound > 15 ? '🟩🟩🟩🟩🟩' : totalFound > 8 ? '🟩🟩🟩🟨⬛' : totalFound > 3 ? '🟩🟩🟨⬛⬛' : '🟩🟨⬛⬛⬛';
+    const row2 = gameState.highestStreak >= 5 ? '🔥🟪🟪🟪🟪' : gameState.highestStreak >= 3 ? '🔥🟪🟪⬛⬛' : '🔥⬛⬛⬛⬛';
+    const row3 = spoolFoundCount === spoolTotal ? '🟦🟦🟦🟦🟦' : spoolFoundCount >= 3 ? '🟦🟦🟦⬛⬛' : '🟦⬛⬛⬛⬛';
+
+    const text = `🔀 UpScramble Game Results
+📊 Score: ${gameState.score.toLocaleString()} pts (${modeName} - ${lengths})
+✨ Words Found: ${totalFound} (${spoolFoundCount}/${spoolTotal} Base Words)
+🔥 Best Streak: ${gameState.highestStreak}x
+
+${row1}
+${row2}
+${row3}
+
+Play at: ${typeof window !== 'undefined' ? window.location.origin : 'https://upscramble.app'}`;
 
     if (navigator.share) {
-      navigator.share({ title: 'Word Scramble Score', text }).catch(() => {});
+      navigator
+        .share({
+          title: 'UpScramble Score',
+          text,
+          url: typeof window !== 'undefined' ? window.location.origin : undefined,
+        })
+        .catch(() => {});
     } else {
       navigator.clipboard.writeText(text);
-      alert('Score copied to clipboard!');
+      alert('Wordle-style score copied to clipboard! Share it with friends.');
     }
   };
 

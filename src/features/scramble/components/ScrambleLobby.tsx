@@ -189,8 +189,29 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
           </div>
         </div>
 
-        {/* Global Quick Stats & How to Play Button */}
+        {/* Global Quick Stats, Share & How to Play Button */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => {
+              const shareData = {
+                title: 'UpScramble - Word Scramble Puzzle',
+                text: 'Challenge your brain with UpScramble! Find words, beat timers, and build streaks in this word scramble game.',
+                url: window.location.origin + window.location.pathname,
+              };
+              if (navigator.share) {
+                navigator.share(shareData).catch(() => {});
+              } else {
+                navigator.clipboard.writeText(shareData.url);
+                alert('Game link copied to clipboard!');
+              }
+            }}
+            className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-slate-200 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md"
+            title="Share UpScramble"
+          >
+            <Share2 className="w-4 h-4 text-pink-400" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+
           <button
             onClick={handleOpenTutorial}
             className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/40 text-cyan-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md"

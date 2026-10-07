@@ -3,6 +3,7 @@ import { WordScrambleContainer } from './features/scramble/WordScrambleContainer
 import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
 import ReloadPrompt from './components/ReloadPrompt';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 export default function App() {
   const isEmbedded = useMemo(() => {
@@ -19,7 +20,12 @@ export default function App() {
         </main>
         <ToastContainer position="bottom-right" />
         {/* Only display standalone PWA prompts when not embedded in another game's iframe */}
-        {!isEmbedded && <ReloadPrompt />}
+        {!isEmbedded && (
+          <>
+            <ReloadPrompt />
+            <PWAInstallPrompt />
+          </>
+        )}
       </div>
     </ErrorBoundary>
   );

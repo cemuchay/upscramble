@@ -29,7 +29,7 @@ export function getHeavyPwaConfig(options: PwaPluginOptions = {}) {
 
   return {
     registerType: 'autoUpdate' as const,
-    includeAssets: ['pwa-icon.svg'],
+    includeAssets: ['favicon.png', 'pwa-icon.png', 'pwa-icon.svg'],
     manifest: {
       name: projectName,
       short_name: shortName,
@@ -41,6 +41,12 @@ export function getHeavyPwaConfig(options: PwaPluginOptions = {}) {
       scope: '/',
       start_url: '/',
       icons: [
+        {
+          src: '/pwa-icon.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'any maskable',
+        },
         {
           src: '/pwa-icon.svg',
           sizes: '192x192 512x512',
@@ -167,7 +173,7 @@ export function getMinimalPwaConfig(options: PwaPluginOptions = {}) {
 
   return {
     registerType: 'autoUpdate' as const,
-    includeAssets: ['pwa-icon.svg'],
+    includeAssets: ['favicon.png', 'pwa-icon.png', 'pwa-icon.svg'],
     manifest: {
       name: projectName,
       short_name: shortName,
@@ -179,6 +185,12 @@ export function getMinimalPwaConfig(options: PwaPluginOptions = {}) {
       scope: '/',
       start_url: '/',
       icons: [
+        {
+          src: '/pwa-icon.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'any maskable',
+        },
         {
           src: '/pwa-icon.svg',
           sizes: '192x192 512x512',
