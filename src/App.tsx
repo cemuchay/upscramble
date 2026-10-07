@@ -3,7 +3,7 @@ import { WordScrambleContainer } from './features/scramble/WordScrambleContainer
 import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
 import ReloadPrompt from './components/ReloadPrompt';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
+import PWAInstallPrompt from './components/PwaInstallPrompt';
 
 export default function App() {
   const isEmbedded = useMemo(() => {

@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw, X, DownloadCloud } from 'lucide-react';
+import { safeLocalStorage } from '../services/safeStorage';
+
+const OFFLINE_READY_NOTIFIED_KEY = 'upscramble_offline_ready_notified';
 
 export const ReloadPrompt: React.FC = () => {
+  const [offlineDismissed, setOfflineDismissed] = useState<boolean>(() => {
+    return safeLocalStorage.getItem(OFFLINE_READY_NOTIFIED_KEY as any) === true;
+  });
+
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -29,12 +36,24 @@ export const ReloadPrompt: React.FC = () => {
     },
   });
 
+  // When offlineReady triggers the first time, mark it so it doesn't pop up again on subsequent visits/reloads
+  useEffect(() => {
+    if (offlineReady && !offlineDismissed) {
+      // Auto-mark as seen once displayed
+      safeLocalStorage.setItem(OFFLINE_READY_NOTIFIED_KEY as any, true);
+    }
+  }, [offlineReady, offlineDismissed]);
+
   const close = () => {
     setOfflineReady(false);
     setNeedRefresh(false);
+    setOfflineDismissed(true);
+    safeLocalStorage.setItem(OFFLINE_READY_NOTIFIED_KEY as any, true);
   };
 
-  if (!offlineReady && !needRefresh) {
+  const shouldShowOfflineReady = offlineReady && !offlineDismissed;
+
+  if (!shouldShowOfflineReady && !needRefresh) {
     return null;
   }
 

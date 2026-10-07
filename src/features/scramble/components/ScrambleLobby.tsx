@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   HelpCircle,
+  Share2,
 } from 'lucide-react';
 
 interface ScrambleLobbyProps {
@@ -199,7 +200,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
                 url: window.location.origin + window.location.pathname,
               };
               if (navigator.share) {
-                navigator.share(shareData).catch(() => {});
+                navigator.share(shareData).catch(() => { });
               } else {
                 navigator.clipboard.writeText(shareData.url);
                 alert('Game link copied to clipboard!');

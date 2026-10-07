@@ -5,6 +5,7 @@ import {
   calculateWordScore,
   calculateTimeBonus,
   calculateTimeDecayMultiplier,
+  hasAnyRemainingValidWord,
   createRng,
 } from './poolGenerator';
 
@@ -53,18 +54,25 @@ export function scrambleReducer(
   switch (action.type) {
     case 'START_GAME': {
       const rng = createRng(action.config.seed || Date.now().toString());
+      const isUntimed = action.config.mode === 'untimed';
+
+      // For Untimed mode, spool 10 words (or 12 words for short lengths) for a significantly bigger grid
+      const defaultWordsCount = isUntimed
+        ? (action.config.selectedLengths.length === 1 && action.config.selectedLengths[0] <= 4 ? 12 : 10)
+        : action.config.wordsPerSpool;
+
       const secretWords = spoolSecretWords(
         action.wordListMap,
         action.config.selectedLengths,
-        action.config.wordsPerSpool,
+        defaultWordsCount,
         rng
       );
       
       // Auto-calculate appropriate matrix capacity based on spooled words and game configuration
       const totalLettersInWords = secretWords.reduce((acc, w) => acc + w.length, 0);
-      const bonusButterCount = Math.min(3, Math.max(1, Math.floor(secretWords.length / 2)));
+      const bonusButterCount = Math.min(isUntimed ? 6 : 3, Math.max(2, Math.floor(secretWords.length / 2)));
       const autoComputedCapacity = totalLettersInWords + bonusButterCount;
-      const targetCapacity = action.config.maxCapacity || Math.min(48, Math.max(20, autoComputedCapacity));
+      const targetCapacity = action.config.maxCapacity || Math.min(isUntimed ? 64 : 48, Math.max(isUntimed ? 40 : 20, autoComputedCapacity));
 
       const tiles = generateTilesFromWords(secretWords, 0, rng).slice(0, targetCapacity);
       const now = Date.now();
@@ -314,8 +322,41 @@ export function scrambleReducer(
         }
       }
 
+      // Check termination condition for Untimed Mode
+      let nextStatus: ScrambleGameState['status'] = state.status;
+      let gameOverReason: 'time_up' | 'no_more_words' | 'cleared' | undefined = undefined;
+      let gameEndedAt: number | undefined = undefined;
+
+      if (state.config.mode === 'untimed') {
+        const remainingAvailable = updatedTiles.filter((t) => t.status === 'available');
+        const foundSet = new Set([word, ...state.foundWords.map((f) => f.word)]);
+
+        if (remainingAvailable.length === 0) {
+          nextStatus = 'game_over';
+          gameOverReason = 'cleared';
+          gameEndedAt = now;
+        } else {
+          // Check if any valid target-length word can still be created with the remaining pool
+          const canMakeMoreWords = hasAnyRemainingValidWord(
+            remainingAvailable,
+            state.config.selectedLengths,
+            action.wordListMap,
+            foundSet
+          );
+
+          if (!canMakeMoreWords) {
+            nextStatus = 'game_over';
+            gameOverReason = 'no_more_words';
+            gameEndedAt = now;
+          }
+        }
+      }
+
       return {
         ...state,
+        status: nextStatus,
+        gameOverReason,
+        gameEndedAt,
         tiles: updatedTiles,
         stagedTileIds: [],
         foundWords: [newFoundWord, ...state.foundWords],

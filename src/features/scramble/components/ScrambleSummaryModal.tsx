@@ -74,10 +74,18 @@ Play at: ${typeof window !== 'undefined' ? window.location.origin : 'https://ups
           <Trophy className="w-8 h-8 sm:w-9 sm:h-9" />
         </div>
         <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-rose-400 to-cyan-400">
-          Game Over!
+          {gameState.gameOverReason === 'no_more_words'
+            ? 'Puzzle Completed!'
+            : gameState.gameOverReason === 'cleared'
+            ? 'Matrix Cleared!'
+            : 'Game Over!'}
         </h2>
         <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-1">
-          Excellent game! Here is your performance breakdown:
+          {gameState.gameOverReason === 'no_more_words'
+            ? 'No more valid words can be formed from the remaining letters. Great solve!'
+            : gameState.gameOverReason === 'cleared'
+            ? 'Incredible! You cleared every single letter in the matrix!'
+            : 'Excellent game! Here is your performance breakdown:'}
         </p>
       </div>
 

@@ -37,10 +37,10 @@ export const PWAInstallPrompt: React.FC = () => {
     setIsIOS(iOSDevice);
 
     // Check prompt dismissal history (Max twice before 1 week cooldown)
-    const history: PromptHistory = safeLocalStorage.getItem(PWA_PROMPT_KEY as any, {
+    const history = (safeLocalStorage.getItem(PWA_PROMPT_KEY as any, {
       dismissCount: 0,
       lastPromptTime: 0,
-    });
+    }) as PromptHistory) || { dismissCount: 0, lastPromptTime: 0 };
 
     const now = Date.now();
     if (history.dismissCount >= 2 && now - history.lastPromptTime < ONE_WEEK_MS) {
@@ -81,10 +81,10 @@ export const PWAInstallPrompt: React.FC = () => {
 
   const handleDismiss = () => {
     setShowBanner(false);
-    const history: PromptHistory = safeLocalStorage.getItem(PWA_PROMPT_KEY as any, {
+    const history = (safeLocalStorage.getItem(PWA_PROMPT_KEY as any, {
       dismissCount: 0,
       lastPromptTime: 0,
-    });
+    }) as PromptHistory) || { dismissCount: 0, lastPromptTime: 0 };
 
     const nextCount = (history.dismissCount || 0) + 1;
     safeLocalStorage.setItem(PWA_PROMPT_KEY as any, {

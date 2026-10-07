@@ -148,3 +148,54 @@ export function calculateTimeDecayMultiplier(wordsFoundCount: number): number {
   return 1.0;
 }
 
+/**
+ * Fast check to determine if any unplayed valid word of the target lengths can be formed
+ * from the currently available letters in the matrix.
+ */
+export function hasAnyRemainingValidWord(
+  availableTiles: ScrambleTile[],
+  targetLengths: number[],
+  wordListMap: Record<number, string[]>,
+  foundWordsSet: Set<string>
+): boolean {
+  if (availableTiles.length === 0 || targetLengths.length === 0) {
+    return false;
+  }
+
+  // Count available letter frequencies
+  const availableFreq: Record<string, number> = {};
+  for (const t of availableTiles) {
+    const l = t.letter.toUpperCase();
+    availableFreq[l] = (availableFreq[l] || 0) + 1;
+  }
+
+  for (const len of targetLengths) {
+    if (availableTiles.length < len) continue;
+
+    const words = wordListMap[len] || [];
+    for (let i = 0; i < words.length; i++) {
+      const candidate = words[i];
+      if (foundWordsSet.has(candidate)) continue;
+
+      // Check letter count frequency
+      const wordFreq: Record<string, number> = {};
+      let possible = true;
+      for (let j = 0; j < candidate.length; j++) {
+        const char = candidate[j];
+        wordFreq[char] = (wordFreq[char] || 0) + 1;
+        if ((wordFreq[char] || 0) > (availableFreq[char] || 0)) {
+          possible = false;
+          break;
+        }
+      }
+
+      if (possible) {
+        return true; // Found at least 1 playable valid word!
+      }
+    }
+  }
+
+  return false;
+}
+
+

@@ -70,9 +70,10 @@ export const ScrambleBoard: React.FC<ScrambleBoardProps> = memo(({
   disabled = false,
 }) => {
   const availableCount = tiles.filter((t) => t.status === 'available').length;
+  const isLargePool = tiles.length > 36;
 
   return (
-    <div className="w-full max-w-xl mx-auto p-2.5 sm:p-4 rounded-3xl bg-slate-900/95 border border-white/10 shadow-lg touch-pan-y">
+    <div className={`w-full ${isLargePool ? 'max-w-2xl' : 'max-w-xl'} mx-auto p-2.5 sm:p-4 rounded-3xl bg-slate-900/95 border border-white/10 shadow-lg touch-pan-y transition-all`}>
       <div className="flex items-center justify-between mb-2 sm:mb-3 px-2">
         <span className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-amber-300 to-cyan-400">
           Letter Pool Matrix ({availableCount} remaining)
@@ -82,7 +83,7 @@ export const ScrambleBoard: React.FC<ScrambleBoardProps> = memo(({
         </span>
       </div>
 
-      <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5 sm:gap-2 place-items-center min-h-[120px]">
+      <div className={`grid ${isLargePool ? 'grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-10' : 'grid-cols-6 sm:grid-cols-8 md:grid-cols-10'} gap-1.5 sm:gap-2 place-items-center min-h-[120px]`}>
         {tiles.map((tile) => (
           <MatrixTile
             key={tile.id}

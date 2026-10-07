@@ -47,6 +47,7 @@ export interface ScrambleGameState {
   gameEndedAt?: number;
   timeDecayMultiplier: number; // e.g. 1.0 (normal), 1.1 (+10%), 1.2 (+20%), etc.
   lastWordSubmittedAt?: number;
+  gameOverReason?: 'time_up' | 'no_more_words' | 'cleared';
 }
 
 export interface ScrambleSessionStats {
