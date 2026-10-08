@@ -237,9 +237,9 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
   }, [historySessions]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col space-y-5 animate-in fade-in duration-200">
-      {/* Top Banner / Navigation with sticky safe area */}
-      <header className="sticky top-0 z-30 w-full flex items-center justify-between p-3.5 sm:p-4 rounded-3xl bg-slate-950/90 border border-slate-800/80 shadow-xl backdrop-blur-md">
+    <div className="w-full max-w-4xl mx-auto flex flex-col space-y-4 animate-in fade-in duration-200">
+      {/* Top Banner / Navigation */}
+      <header className="w-full flex items-center justify-between p-3 sm:p-4 rounded-3xl bg-slate-950/90 border border-slate-800/80 shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-3">
           {onBackToMenu && (
             <button
@@ -549,7 +549,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
             </div>
 
             {/* Right Col: Setup Preview & Start Button */}
-            <div className="lg:col-span-5 flex flex-col space-y-4 pb-6 mb-6">
+            <div className="lg:col-span-5 flex flex-col space-y-3.5 pb-2">
               <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4 flex-1">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">
                   Game Configuration Summary
@@ -833,7 +833,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
             </div>
 
             {/* List of Game Sessions */}
-            <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1 mb-12">
+            <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1 mb-2">
               {historySessions.map((item) => (
                 <div
                   key={item.id}
