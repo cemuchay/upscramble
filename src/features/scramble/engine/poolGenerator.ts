@@ -104,34 +104,73 @@ export function calculateWordScore(
 }
 
 /**
+ * Determine the maximum seconds allowed between word submissions to qualify as a "Hot Streak"
+ * Tighter thresholds for challenging & rewarding fast gameplay:
+ * 3L: 2.5s | 4L: 3.5s | 5L: 4.5s | 6L+: 6.0s
+ */
+export function getHotStreakTimeThreshold(wordLength: number): number {
+  if (wordLength <= 3) return 2.5;
+  if (wordLength === 4) return 3.5;
+  if (wordLength === 5) return 4.5;
+  return 6.0;
+}
+
+/**
  * Calculate dynamic time bonus in seconds for a correctly submitted word in timed mode.
- * Higher score value, longer words, and quick submissions award higher time bonuses (+2s to +8s).
+ * Features progressive Hot Streak rewards for back-to-back rapid submissions.
  */
 export function calculateTimeBonus(
   wordLength: number,
   score: number,
   secondsSinceLastWord: number = 5,
-  isSpoolBonus: boolean = false
-): number {
+  isSpoolBonus: boolean = false,
+  currentStreak: number = 0
+): { bonusSeconds: number; isHotStreak: boolean; streakTier: number } {
   // Base bonus by length: 3L = 2s, 4L = 3s, 5L = 4s, 6L = 5s, 7L+ = 6s
-  let bonus = Math.min(6, Math.max(2, wordLength - 1));
+  let baseBonus = Math.min(6, Math.max(2, wordLength - 1));
 
   // Score magnitude bonus
-  if (score >= 400) bonus += 2;
-  else if (score >= 200) bonus += 1;
+  if (score >= 400) baseBonus += 2;
+  else if (score >= 200) baseBonus += 1;
 
-  // Speed bonus: submitted within 3 seconds of last word/game start
-  if (secondsSinceLastWord <= 3) {
-    bonus += 1;
+  // Check if this submission is within the tight hot streak threshold
+  const threshold = getHotStreakTimeThreshold(wordLength);
+  const isHotStreak = secondsSinceLastWord <= threshold;
+
+  // Streak Tier progression (0 = regular, 1 = On Fire, 2 = Blazing, 3 = Unstoppable)
+  let streakTier = 0;
+  let multiplier = 1.0;
+
+  if (isHotStreak && currentStreak >= 2) {
+    if (currentStreak >= 6) {
+      streakTier = 3; // Unstoppable 🔥🔥🔥 (2.0x reward)
+      multiplier = 2.0;
+    } else if (currentStreak >= 4) {
+      streakTier = 2; // Blazing 🔥🔥 (1.5x reward)
+      multiplier = 1.5;
+    } else {
+      streakTier = 1; // On Fire 🔥 (1.25x reward)
+      multiplier = 1.25;
+    }
+  } else if (isHotStreak) {
+    // Single fast submission (warm-up speed bonus)
+    baseBonus += 1;
   }
 
-  // Original spool bonus adds +1s extra
+  // Original secret spool bonus adds +1s
   if (isSpoolBonus) {
-    bonus += 1;
+    baseBonus += 1;
   }
 
-  return Math.min(10, bonus);
+  const finalBonus = Math.min(12, Math.round(baseBonus * multiplier));
+
+  return {
+    bonusSeconds: finalBonus,
+    isHotStreak,
+    streakTier,
+  };
 }
+
 
 /**
  * Calculate time decay multiplier based on total words found relative to game progress.

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ScrambleConfig, ScrambleGameMode, ScrambleSessionStats } from '../engine/types';
-import { LocalStorageScrambleRepository } from '../storage/ScrambleRepository';
-import { safeLocalStorage } from '../../../services/safeStorage';
+import type { ScrambleConfig } from '../engine/types';
 import { ScrambleTutorialModal } from './ScrambleTutorialModal';
 import { ModalLayout } from '@/components/layout/ModalLayout';
+import { useScrambleLobby, AVAILABLE_LENGTHS } from '../hooks/useScrambleLobby';
 import {
   Play,
   Sparkles,
@@ -28,213 +27,38 @@ interface ScrambleLobbyProps {
   onBackToMenu?: () => void;
 }
 
-const AVAILABLE_LENGTHS = [3, 4, 5, 6, 7, 8, 9, 10];
-const TUTORIAL_STORAGE_KEY = 'wordscramble_tutorial_completed';
-const CONFIG_STORAGE_KEY = 'wordscramble_last_config';
-
-interface SavedScrambleConfig {
-  primaryLength: number;
-  additionalLengths: number[];
-  mode: ScrambleGameMode;
-  durationSeconds: number;
-}
-
 export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
   onStartNewGame,
   onResumeGame,
   onBackToMenu,
 }) => {
-  const repository = useMemo(() => new LocalStorageScrambleRepository(), []);
-  const [activeTab, setActiveTab] = useState<'create' | 'pending' | 'history'>('create');
-  const [pendingGame, setPendingGame] = useState<any | null>(null);
-  const [historySessions, setHistorySessions] = useState<ScrambleSessionStats[]>([]);
-  const [showTutorial, setShowTutorial] = useState<boolean>(() => {
-    const val = String(safeLocalStorage.getItem(TUTORIAL_STORAGE_KEY) ?? '');
-    return val !== 'true';
-  });
-
-  const handleTutorialComplete = () => {
-    safeLocalStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
-    setShowTutorial(false);
-  };
-
-  const handleOpenTutorial = () => {
-    setShowTutorial(true);
-  };
-
-  // Game configuration state initialized lazily directly from safeLocalStorage
-  const [primaryLength, setPrimaryLength] = useState<number>(() => {
-    try {
-      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
-      if (raw && typeof raw === 'object' && 'primaryLength' in (raw as any)) {
-        return (raw as any).primaryLength;
-      }
-      if (raw && typeof raw === 'string') {
-        const parsed = JSON.parse(raw);
-        return parsed.primaryLength ?? 5;
-      }
-    } catch {}
-    return 5;
-  });
-
-  const [additionalLengths, setAdditionalLengths] = useState<number[]>(() => {
-    try {
-      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
-      if (raw && typeof raw === 'object' && 'additionalLengths' in (raw as any)) {
-        return (raw as any).additionalLengths || [];
-      }
-      if (raw && typeof raw === 'string') {
-        const parsed = JSON.parse(raw);
-        return parsed.additionalLengths || [];
-      }
-    } catch {}
-    return [];
-  });
-
-  const [mode, setMode] = useState<ScrambleGameMode>(() => {
-    try {
-      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
-      if (raw && typeof raw === 'object' && 'mode' in (raw as any)) {
-        return (raw as any).mode || 'timed';
-      }
-      if (raw && typeof raw === 'string') {
-        const parsed = JSON.parse(raw);
-        return parsed.mode || 'timed';
-      }
-    } catch {}
-    return 'timed';
-  });
-
-  const [durationSeconds, setDurationSeconds] = useState<number>(() => {
-    try {
-      const raw = safeLocalStorage.getItem(CONFIG_STORAGE_KEY as any);
-      if (raw && typeof raw === 'object' && 'durationSeconds' in (raw as any)) {
-        return (raw as any).durationSeconds || 90;
-      }
-      if (raw && typeof raw === 'string') {
-        const parsed = JSON.parse(raw);
-        return parsed.durationSeconds || 90;
-      }
-    } catch {}
-    return 90;
-  });
-
-  const [useScrabbleDict] = useState<boolean>(true);
-
-  // Review confirmation modal state
-  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
-
-  // Persist config selection whenever values change
-  useEffect(() => {
-    const toSave: SavedScrambleConfig = {
-      primaryLength,
-      additionalLengths,
-      mode,
-      durationSeconds,
-    };
-    safeLocalStorage.setItem(CONFIG_STORAGE_KEY as any, toSave as any);
-  }, [primaryLength, additionalLengths, mode, durationSeconds]);
-
-  // Load storage data
-  const loadData = useCallback(async () => {
-    const active = await repository.loadActiveGame();
-    setPendingGame(active);
-    const sessions = await repository.getSessions();
-    setHistorySessions(sessions);
-  }, [repository]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  // Combined selected lengths for game logic
-  const selectedLengths = useMemo(() => {
-    return Array.from(new Set([primaryLength, ...additionalLengths])).sort((a, b) => a - b);
-  }, [primaryLength, additionalLengths]);
-
-  const handleSelectPrimaryLength = (len: number) => {
-    setPrimaryLength(len);
-    // Remove from additional lengths if it was there
-    setAdditionalLengths((prev) => prev.filter((l) => l !== len));
-  };
-
-  const handleToggleAdditionalLength = (len: number) => {
-    if (len === primaryLength) return; // Cannot add primary length as additional
-
-    if (additionalLengths.includes(len)) {
-      setAdditionalLengths((prev) => prev.filter((l) => l !== len));
-    } else {
-      if (additionalLengths.length < 2) {
-        setAdditionalLengths((prev) => [...prev, len].sort((a, b) => a - b));
-      } else {
-        // Replace oldest additional selection if max 2 reached
-        setAdditionalLengths((prev) => [prev[1], len].sort((a, b) => a - b));
-      }
-    }
-  };
-
-  const handleRandomizeConfig = () => {
-    // 1. Pick a random primary length (3 to 8)
-    const randomPrimary = AVAILABLE_LENGTHS[Math.floor(Math.random() * (AVAILABLE_LENGTHS.length - 2))]; // bias towards 3-8
-    
-    // 2. Decide if we want additional lengths (50% chance single length, 50% chance multi-length)
-    const wantsAdditional = Math.random() > 0.5;
-    let randomAdditionals: number[] = [];
-    if (wantsAdditional) {
-      const candidates = AVAILABLE_LENGTHS.filter((l) => l !== randomPrimary);
-      // Pick 1 or 2 additional lengths
-      const count = Math.random() > 0.5 ? 2 : 1;
-      const shuffled = [...candidates].sort(() => 0.5 - Math.random());
-      randomAdditionals = shuffled.slice(0, count).sort((a, b) => a - b);
-    }
-
-    // 3. Random mode (65% timed, 35% untimed)
-    const randomMode: ScrambleGameMode = Math.random() > 0.35 ? 'timed' : 'untimed';
-
-    // 4. Random duration if timed (60, 90, 120, 180)
-    const durations = [60, 90, 120, 180];
-    const randomDuration = durations[Math.floor(Math.random() * durations.length)];
-
-    setPrimaryLength(randomPrimary);
-    setAdditionalLengths(randomAdditionals);
-    setMode(randomMode);
-    setDurationSeconds(randomDuration);
-  };
-
-  const handleOpenReviewModal = () => {
-    setShowConfirmModal(true);
-  };
-
-  const handleLaunchGame = () => {
-    setShowConfirmModal(false);
-    // Dynamic words per spool based on selected lengths
-    const wordsPerSpool = selectedLengths.length === 1 && selectedLengths[0] <= 4 ? 8 : 6;
-    onStartNewGame({
-      selectedLengths,
-      mode,
-      durationSeconds: mode === 'timed' ? durationSeconds : 0,
-      wordsPerSpool,
-      maxCapacity: 0, // Auto-computed balanced capacity based on spool and word length
-      useScrabbleDict,
-      seed: Date.now().toString(),
-    });
-  };
-
-  const handleDeletePendingGame = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (window.confirm('Are you sure you want to discard your unfinished game?')) {
-      await repository.clearActiveGame();
-      setPendingGame(null);
-    }
-  };
-
-  const isAutoSubmitEnabled = selectedLengths.length === 1;
-
-  // Best all-time score
-  const highestOverallScore = useMemo(() => {
-    if (historySessions.length === 0) return 0;
-    return Math.max(...historySessions.map((s) => s.score));
-  }, [historySessions]);
+  const {
+    activeTab,
+    pendingGames,
+    historySessions,
+    showTutorial,
+    primaryLength,
+    additionalLengths,
+    selectedLengths,
+    mode,
+    durationSeconds,
+    showConfirmModal,
+    isAutoSubmitEnabled,
+    highestOverallScore,
+    handleTabChange,
+    handleTutorialComplete,
+    handleOpenTutorial,
+    handleSelectPrimaryLength,
+    handleToggleAdditionalLength,
+    setMode,
+    setDurationSeconds,
+    handleRandomizeConfig,
+    handleOpenReviewModal,
+    handleCloseReviewModal,
+    handleLaunchGame,
+    handleDeletePendingGame,
+    handleClearAllPendingGames,
+  } = useScrambleLobby({ onStartNewGame });
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col space-y-4 animate-in fade-in duration-200">
@@ -318,7 +142,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
       {/* Navigation Tabs (Create Game / Pending Game / History) */}
       <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-inner">
         <button
-          onClick={() => setActiveTab('create')}
+          onClick={() => handleTabChange('create')}
           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'create'
             ? 'bg-gradient-to-r from-pink-500/20 via-amber-500/20 to-cyan-500/20 text-white border border-pink-500/40 shadow-sm'
             : 'text-slate-400 hover:text-slate-200'
@@ -329,21 +153,21 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('pending')}
+          onClick={() => handleTabChange('pending')}
           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${activeTab === 'pending'
             ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-white border border-amber-500/40 shadow-sm'
             : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-          <span>Pending Game</span>
-          {pendingGame && (
+          <span>Pending Games {pendingGames.length > 0 && `(${pendingGames.length})`}</span>
+          {pendingGames.length > 0 && (
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute top-2.5 right-3" />
           )}
         </button>
 
         <button
-          onClick={() => setActiveTab('history')}
+          onClick={() => handleTabChange('history')}
           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'history'
             ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-white border border-cyan-500/40 shadow-sm'
             : 'text-slate-400 hover:text-slate-200'
@@ -624,7 +448,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
         {/* Game Configuration Confirmation & Review Modal */}
         <ModalLayout
           isOpen={showConfirmModal}
-          onClose={() => setShowConfirmModal(false)}
+          onClose={handleCloseReviewModal}
           title="Review Game Settings"
           maxWidth="sm"
           containerClassName="bg-slate-900 border border-indigo-500/40 shadow-2xl text-slate-100 p-4 sm:p-5"
@@ -665,7 +489,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
             <div className="grid grid-cols-2 gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setShowConfirmModal(false)}
+                onClick={handleCloseReviewModal}
                 className="py-3 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-750 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer"
               >
                 Change Settings
@@ -690,91 +514,104 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="w-full"
+            className="w-full space-y-4"
           >
-            {pendingGame ? (
-              <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-amber-500/40 shadow-xl space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400">
-                      <RotateCcw className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-100">Unfinished In-Progress Game</h3>
-                      <p className="text-[11px] text-slate-400">
-                        Saved on {new Date(pendingGame.savedAt || Date.now()).toLocaleDateString()}{' '}
-                        {new Date(pendingGame.savedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase bg-amber-950 text-amber-300 border border-amber-500/40">
-                    {pendingGame.config?.mode || 'Game'} In Progress
+            {pendingGames.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Unfinished Saved Games ({pendingGames.length})
                   </span>
-                </div>
-
-                {/* Score & Progress Details */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Current Score</span>
-                    <div className="text-lg font-black text-amber-300 mt-0.5">
-                      {(pendingGame.score || 0).toLocaleString()} pts
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Words Cleared</span>
-                    <div className="text-lg font-black text-cyan-300 mt-0.5">
-                      {(pendingGame.foundWords || []).length}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Current Streak</span>
-                    <div className="text-lg font-black text-rose-400 mt-0.5 flex items-center gap-1">
-                      <Flame className="w-4 h-4 fill-current" />
-                      <span>{pendingGame.streak || 0}x</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">
-                      {pendingGame.config?.mode === 'timed' ? 'Time Remaining' : 'Status'}
-                    </span>
-                    <div className="text-lg font-black text-emerald-300 mt-0.5">
-                      {pendingGame.config?.mode === 'timed'
-                        ? `${pendingGame.remainingSeconds || 0}s`
-                        : 'Active'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Target Configurations */}
-                <div className="p-3.5 rounded-2xl bg-slate-950/40 border border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Target Word Lengths:</span>
-                  <span className="font-bold text-amber-400">
-                    {(pendingGame.config?.selectedLengths || []).map((l: number) => `${l}L`).join(', ')}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-3 pt-2">
                   <button
-                    onClick={handleDeletePendingGame}
-                    className="py-3 px-4 rounded-2xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-700/50 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    onClick={handleClearAllPendingGames}
+                    className="text-[11px] text-rose-400 hover:text-rose-300 font-bold cursor-pointer transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Discard Game</span>
-                  </button>
-
-                  <button
-                    onClick={() => onResumeGame(pendingGame)}
-                    className="flex-1 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 text-slate-950 shadow-[0_0_25px_rgba(251,146,60,0.5)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>RESUME UNFINISHED GAME</span>
+                    Clear All
                   </button>
                 </div>
+
+                {pendingGames.map((game) => (
+                  <div
+                    key={game.id}
+                    className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-amber-500/40 shadow-xl space-y-4 hover:border-amber-500/60 transition-all"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                          <RotateCcw className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-slate-100">
+                            {game.config?.mode === 'timed' ? '⚡ Timed Rush' : '♾️ Untimed Puzzle'}
+                          </h3>
+                          <p className="text-[11px] text-slate-400">
+                            Saved on {new Date(game.savedAt || Date.now()).toLocaleDateString()}{' '}
+                            {new Date(game.savedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase bg-amber-950 text-amber-300 border border-amber-500/40">
+                        {game.config?.selectedLengths.map((l) => `${l}L`).join(', ')}
+                      </span>
+                    </div>
+
+                    {/* Score & Progress Details */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[10px] font-bold uppercase text-slate-400">Current Score</span>
+                        <div className="text-lg font-black text-amber-300 mt-0.5">
+                          {(game.score || 0).toLocaleString()} pts
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[10px] font-bold uppercase text-slate-400">Words Cleared</span>
+                        <div className="text-lg font-black text-cyan-300 mt-0.5">
+                          {(game.foundWords || []).length}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[10px] font-bold uppercase text-slate-400">Current Streak</span>
+                        <div className="text-lg font-black text-rose-400 mt-0.5 flex items-center gap-1">
+                          <Flame className="w-4 h-4 fill-current" />
+                          <span>{game.streak || 0}x</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+                        <span className="text-[10px] font-bold uppercase text-slate-400">
+                          {game.config?.mode === 'timed' ? 'Time Remaining' : 'Status'}
+                        </span>
+                        <div className="text-lg font-black text-emerald-300 mt-0.5">
+                          {game.config?.mode === 'timed'
+                            ? `${game.remainingSeconds || 0}s`
+                            : 'Active'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        onClick={(e) => handleDeletePendingGame(game.id, e)}
+                        className="py-3 px-4 rounded-2xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-700/50 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Discard</span>
+                      </button>
+
+                      <button
+                        onClick={() => onResumeGame(game)}
+                        className="flex-1 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 text-slate-950 shadow-[0_0_25px_rgba(251,146,60,0.5)] hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>RESUME GAME</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="p-12 rounded-3xl bg-slate-900/80 border border-slate-800 text-center space-y-3">
@@ -788,7 +625,7 @@ export const ScrambleLobby: React.FC<ScrambleLobbyProps> = ({
                   You do not have any pending games in progress. Start a new game anytime!
                 </p>
                 <button
-                  onClick={() => setActiveTab('create')}
+                  onClick={() => handleTabChange('create')}
                   className="mt-2 py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md inline-flex items-center gap-1.5"
                 >
                   <Sparkles className="w-4 h-4" />

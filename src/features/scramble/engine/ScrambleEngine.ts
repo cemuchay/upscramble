@@ -76,9 +76,11 @@ export function scrambleReducer(
 
       const tiles = generateTilesFromWords(secretWords, 0, rng).slice(0, targetCapacity);
       const now = Date.now();
+      const gameId = `scramble_${now}_${action.config.selectedLengths.join('-')}L`;
 
       return {
         ...state,
+        gameId,
         config: {
           ...action.config,
           maxCapacity: targetCapacity,
@@ -249,10 +251,12 @@ export function scrambleReducer(
       const lastTime = state.lastWordSubmittedAt || state.gameStartedAt || now;
       const secondsSinceLastWord = Math.max(0, Math.floor((now - lastTime) / 1000));
 
-      // Calculate time bonus for efficient gameplay in timed mode
-      const timeBonus = state.config.mode === 'timed'
-        ? calculateTimeBonus(word.length, wordScore, secondsSinceLastWord, isSpoolBonus)
-        : 0;
+      // Calculate progressive hot streak time bonus in timed mode
+      const bonusInfo = state.config.mode === 'timed'
+        ? calculateTimeBonus(word.length, wordScore, secondsSinceLastWord, isSpoolBonus, state.streak)
+        : { bonusSeconds: 0, isHotStreak: false, streakTier: 0 };
+
+      const timeBonus = bonusInfo.bonusSeconds;
 
       const updatedRemainingSeconds = state.config.mode === 'timed'
         ? state.remainingSeconds + timeBonus

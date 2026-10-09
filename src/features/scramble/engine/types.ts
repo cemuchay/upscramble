@@ -29,6 +29,7 @@ export interface FoundWordEntry {
 }
 
 export interface ScrambleGameState {
+  gameId?: string;
   config: ScrambleConfig;
   status: 'idle' | 'playing' | 'paused' | 'game_over';
   tiles: ScrambleTile[];
@@ -48,6 +49,26 @@ export interface ScrambleGameState {
   timeDecayMultiplier: number; // e.g. 1.0 (normal), 1.1 (+10%), 1.2 (+20%), etc.
   lastWordSubmittedAt?: number;
   gameOverReason?: 'time_up' | 'no_more_words' | 'cleared';
+}
+
+export interface PendingScrambleGame {
+  id: string;
+  savedAt: string;
+  config: ScrambleConfig;
+  tiles: ScrambleTile[];
+  stagedTileIds: string[];
+  foundWords: FoundWordEntry[];
+  score: number;
+  streak: number;
+  highestStreak: number;
+  remainingSeconds: number;
+  wordsClearedSinceRefill: number;
+  targetRefillThreshold: number;
+  maxCapacity: number;
+  secretSpoolWords: string[];
+  gameStartedAt?: number;
+  lastWordSubmittedAt?: number;
+  timeDecayMultiplier: number;
 }
 
 export interface ScrambleSessionStats {

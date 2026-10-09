@@ -4,7 +4,6 @@ import type { ScrambleConfig, ScrambleTile } from './engine/types';
 import { LocalStorageScrambleRepository } from './storage/ScrambleRepository';
 import { loadWordLists } from '../../services/wordService';
 import { ScrambleLobby } from './components/ScrambleLobby';
-import { ScrambleHeader } from './components/ScrambleHeader';
 import { ScrambleBoard } from './components/ScrambleBoard';
 import { SubmissionTray } from './components/SubmissionTray';
 import { FoundWordsList } from './components/FoundWordsList';
@@ -123,18 +122,26 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
   };
 
   const handleReturnToLobby = () => {
-    // If a game is active/playing or paused, immediately persist active game before switching view
+    // If a game is active/playing or paused, immediately persist pending game before switching view
     if (state.status === 'playing' || state.status === 'paused') {
-      repository.saveActiveGame({
-        status: state.status,
+      const gId = state.gameId || `game_${Date.now()}`;
+      repository.savePendingGame({
+        id: gId,
         config: state.config,
         tiles: state.tiles,
         stagedTileIds: state.stagedTileIds,
+        foundWords: state.foundWords,
         score: state.score,
         streak: state.streak,
         highestStreak: state.highestStreak,
         remainingSeconds: state.remainingSeconds,
-        foundWords: state.foundWords,
+        wordsClearedSinceRefill: state.wordsClearedSinceRefill || 0,
+        targetRefillThreshold: state.targetRefillThreshold || 5,
+        maxCapacity: state.maxCapacity || 30,
+        secretSpoolWords: state.secretSpoolWords || [],
+        gameStartedAt: state.gameStartedAt,
+        lastWordSubmittedAt: state.lastWordSubmittedAt,
+        timeDecayMultiplier: state.timeDecayMultiplier || 1.0,
         savedAt: new Date().toISOString(),
       });
     }
@@ -186,26 +193,36 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
         timeSpentSeconds: state.config.durationSeconds - state.remainingSeconds,
         completedAt: new Date().toISOString(),
       }).then(() => {
-        repository.clearActiveGame();
+        if (state.gameId) {
+          repository.removePendingGame(state.gameId);
+        }
       });
     }
-  }, [view, state.status, state.foundWords, state.score, state.highestStreak, state.config, state.remainingSeconds, repository]);
+  }, [view, state.status, state.gameId, state.foundWords, state.score, state.highestStreak, state.config, state.remainingSeconds, repository]);
 
   // Debounced auto-save for active game in progress (avoids disk stalls on every 1-second timer tick)
   useEffect(() => {
     if (view !== 'game' || (state.status !== 'playing' && state.status !== 'paused')) return;
 
     const timeout = setTimeout(() => {
-      repository.saveActiveGame({
-        status: state.status,
+      const gId = state.gameId || `game_${Date.now()}`;
+      repository.savePendingGame({
+        id: gId,
         config: state.config,
         tiles: state.tiles,
         stagedTileIds: state.stagedTileIds,
+        foundWords: state.foundWords,
         score: state.score,
         streak: state.streak,
         highestStreak: state.highestStreak,
         remainingSeconds: state.remainingSeconds,
-        foundWords: state.foundWords,
+        wordsClearedSinceRefill: state.wordsClearedSinceRefill || 0,
+        targetRefillThreshold: state.targetRefillThreshold || 5,
+        maxCapacity: state.maxCapacity || 30,
+        secretSpoolWords: state.secretSpoolWords || [],
+        gameStartedAt: state.gameStartedAt,
+        lastWordSubmittedAt: state.lastWordSubmittedAt,
+        timeDecayMultiplier: state.timeDecayMultiplier || 1.0,
         savedAt: new Date().toISOString(),
       });
     }, 1500);
@@ -213,14 +230,7 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
     return () => clearTimeout(timeout);
   }, [
     view,
-    state.status,
-    state.tiles,
-    state.stagedTileIds,
-    state.score,
-    state.streak,
-    state.highestStreak,
-    state.foundWords,
-    state.config,
+    state,
     repository
   ]);
 
@@ -384,56 +394,90 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
         />
       ) : (
         <>
-          {/* Top In-Game Navbar */}
-          <header className="w-full max-w-4xl flex items-center justify-between py-2 px-3 mb-2 rounded-2xl bg-slate-950/90 border border-slate-800/80 backdrop-blur-md shadow-lg">
-            <button
-              onClick={handleReturnToLobby}
-              className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-300 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 shadow-md"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Lobby</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-amber-300 to-cyan-400">
-                WORD SCRAMBLE MATRIX
-              </span>
-            </div>
-
+          {/* Unified Top In-Game Navbar with Integrated Timer & Stats */}
+          <header className="w-full max-w-4xl flex items-center justify-between py-2 px-3 sm:px-4 mb-3 rounded-2xl bg-slate-950/90 border border-slate-800/80 backdrop-blur-md shadow-lg">
+            {/* Left: Back to Lobby & Guide */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
-                onClick={() => setShowInGameTutorial(true)}
-                className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-cyan-400 transition-all flex items-center gap-1 text-xs font-bold cursor-pointer active:scale-95 shadow-md"
-                title="How to Play"
+                onClick={handleReturnToLobby}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-300 transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 shadow-sm"
+                title="Back to Lobby"
               >
-                <HelpCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Guide</span>
+                <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">Lobby</span>
               </button>
+
+              <button
+                onClick={() => setShowInGameTutorial(true)}
+                className="p-2 sm:p-2 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 transition-all flex items-center gap-1 text-xs font-bold cursor-pointer active:scale-95 shadow-sm"
+                title="How to Play Guide"
+              >
+                <HelpCircle className="w-4 h-4 text-cyan-400" />
+              </button>
+            </div>
+
+            {/* Center: Live Timer Badge / Untimed Status + Pause Button */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs sm:text-sm font-mono border transition-all ${
+                  state.status === 'paused'
+                    ? 'bg-amber-950/80 border-amber-500/50 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                    : state.config.mode === 'timed' && state.remainingSeconds <= 15
+                    ? 'bg-rose-950/80 border-rose-500/60 text-rose-300 animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.6)]'
+                    : 'bg-slate-900/90 border-cyan-500/40 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                }`}
+              >
+                <span className="text-xs">⏱️</span>
+                <span>
+                  {state.config.mode === 'timed'
+                    ? `${Math.floor(state.remainingSeconds / 60)}:${(state.remainingSeconds % 60).toString().padStart(2, '0')}`
+                    : '♾️ Untimed'}
+                </span>
+                {state.config.mode === 'timed' && state.timeDecayMultiplier > 1.0 && (
+                  <span className="hidden sm:inline text-[9px] text-rose-400 font-sans font-bold ml-1">
+                    ({state.timeDecayMultiplier.toFixed(1)}x)
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={handleTogglePause}
+                className="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-amber-400 transition-all flex items-center gap-1 text-xs font-bold cursor-pointer active:scale-95 shadow-sm"
+                title={state.status === 'paused' ? 'Resume Game' : 'Pause Game'}
+              >
+                {state.status === 'paused' ? (
+                  <span className="flex items-center gap-1 text-emerald-400 font-black">▶ Resume</span>
+                ) : (
+                  <span className="flex items-center gap-1">⏸ Pause</span>
+                )}
+              </button>
+            </div>
+
+            {/* Right: Live Score & Streak */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {state.streak > 1 && (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-gradient-to-r from-orange-500/20 to-rose-500/20 border border-orange-500/40 text-[11px] font-black text-orange-300 animate-pulse">
+                  <span>🔥</span>
+                  <span>{state.streak}x</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-right">
+                <span className="text-[10px] uppercase font-bold text-slate-400 hidden sm:inline">Score:</span>
+                <span className="text-xs sm:text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">
+                  {state.score.toLocaleString()}
+                </span>
+              </div>
 
               <button
                 onClick={() => handleStartGame(state.config)}
-                className="p-2 sm:p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-300 transition-all flex items-center gap-1 text-xs font-bold cursor-pointer active:scale-95 shadow-md"
-                title="Restart with same configuration"
+                className="p-2 rounded-xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                title="Restart with same settings"
               >
                 <RefreshCw className="w-4 h-4 text-cyan-400" />
-                <span className="hidden sm:inline">Restart</span>
               </button>
             </div>
           </header>
-
-          {/* Core Game Stats & Timer / Pause Controls placed right ON TOP */}
-          <div className="w-full max-w-4xl">
-            <ScrambleHeader
-              score={state.score}
-              streak={state.streak}
-              remainingSeconds={state.remainingSeconds}
-              mode={state.config.mode}
-              targetLengths={state.config.selectedLengths}
-              isPaused={state.status === 'paused'}
-              onTogglePause={handleTogglePause}
-              timeDecayMultiplier={state.timeDecayMultiplier}
-            />
-          </div>
 
           {/* In-Game Tutorial Modal */}
           <ScrambleTutorialModal
@@ -448,37 +492,80 @@ export const WordScrambleContainer: React.FC<WordScrambleContainerProps> = ({
             }}
           />
 
-          {/* Main Game Surface: Responsive Desktop 2-Column & Mobile 1-Column */}
-          <main className="w-full max-w-4xl flex flex-col lg:flex-row items-start justify-center gap-4 flex-1">
-            {/* Left Column on Desktop (Selected Word on TOP -> Letter Pool Below), Top on Mobile */}
-            <section className="w-full lg:w-7/12 flex flex-col gap-2.5">
-              {/* Selected Words (Submission Tray) ON TOP as requested */}
-              <SubmissionTray
-                stagedTiles={stagedTiles}
-                targetLengths={state.config.selectedLengths}
-                onUnstageTile={handleUnstageTile}
-                onSwapTiles={handleSwapStagedTiles}
-                onBackspace={handleBackspace}
-                onClear={handleClear}
-                onSubmit={handleSubmit}
-                onShuffle={handleShuffle}
-                isValidLength={isValidLength}
-                disabled={state.status !== 'playing'}
-              />
+          {/* Main Game Surface with Anti-Cheat Pause Blur */}
+          <div className="w-full max-w-4xl relative flex-1 flex flex-col items-center">
+            {/* Pause Screen Overlay */}
+            {state.status === 'paused' && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 rounded-3xl bg-slate-950/75 backdrop-blur-xl border border-indigo-500/30 shadow-2xl animate-in fade-in duration-200">
+                <div className="max-w-xs w-full text-center space-y-4 p-6 rounded-2xl bg-slate-900/90 border border-slate-700 shadow-2xl">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center mx-auto text-xl shadow-lg">
+                    ⏸️
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-100">Game Paused</h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Matrix & letters are hidden while paused.
+                    </p>
+                  </div>
 
-              {/* Letter Pool Matrix BELOW Selected Words */}
-              <ScrambleBoard
-                tiles={state.tiles}
-                onTileClick={handleStageTile}
-                disabled={state.status !== 'playing'}
-              />
-            </section>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex justify-around text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Score</span>
+                      <span className="font-black text-amber-300">{state.score}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Words</span>
+                      <span className="font-black text-cyan-300">{state.foundWords.length}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Streak</span>
+                      <span className="font-black text-rose-400">{state.streak}x</span>
+                    </div>
+                  </div>
 
-            {/* Right Column on Desktop (Discovered Words List), Bottom on Mobile */}
-            <section className="w-full lg:w-5/12 flex flex-col gap-2.5">
-              <FoundWordsList foundWords={state.foundWords} />
-            </section>
-          </main>
+                  <button
+                    onClick={handleTogglePause}
+                    className="w-full py-3 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 hover:brightness-110 active:scale-95 transition-all shadow-lg cursor-pointer"
+                  >
+                    ▶ RESUME GAME
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <main className={`w-full flex flex-col lg:flex-row items-start justify-center gap-4 flex-1 transition-all duration-200 ${
+              state.status === 'paused' ? 'filter blur-md pointer-events-none select-none opacity-25' : ''
+            }`}>
+              {/* Left Column on Desktop (Selected Word on TOP -> Letter Pool Below), Top on Mobile */}
+              <section className="w-full lg:w-7/12 flex flex-col gap-2.5">
+                {/* Selected Words (Submission Tray) ON TOP as requested */}
+                <SubmissionTray
+                  stagedTiles={stagedTiles}
+                  targetLengths={state.config.selectedLengths}
+                  onUnstageTile={handleUnstageTile}
+                  onSwapTiles={handleSwapStagedTiles}
+                  onBackspace={handleBackspace}
+                  onClear={handleClear}
+                  onSubmit={handleSubmit}
+                  onShuffle={handleShuffle}
+                  isValidLength={isValidLength}
+                  disabled={state.status !== 'playing'}
+                />
+
+                {/* Letter Pool Matrix BELOW Selected Words */}
+                <ScrambleBoard
+                  tiles={state.tiles}
+                  onTileClick={handleStageTile}
+                  disabled={state.status !== 'playing'}
+                />
+              </section>
+
+              {/* Right Column on Desktop (Discovered Words List), Bottom on Mobile */}
+              <section className="w-full lg:w-5/12 flex flex-col gap-2.5">
+                <FoundWordsList foundWords={state.foundWords} />
+              </section>
+            </main>
+          </div>
 
           {/* Game Over Summary Modal with Return to Lobby */}
           <ScrambleSummaryModal
